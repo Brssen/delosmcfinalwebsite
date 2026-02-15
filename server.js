@@ -57,6 +57,24 @@ let pool;
 let appInitPromise = null;
 let smtpChecked = false;
 
+function getStartupErrorMessage(error) {
+    const code = error && typeof error === "object" ? error.code : "";
+
+    if (code === "ECONNREFUSED" || code === "ETIMEDOUT") {
+        return "Veritabani baglantisi kurulamadi. Vercel DB_HOST/DB_PORT ayarlarini kontrol et.";
+    }
+
+    if (code === "ER_ACCESS_DENIED_ERROR") {
+        return "Veritabani kullanici bilgileri hatali. DB_USER ve DB_PASSWORD degerlerini kontrol et.";
+    }
+
+    if (code === "ER_BAD_DB_ERROR") {
+        return "Veritabani bulunamadi. DB_NAME degerini kontrol et.";
+    }
+
+    return "Sunucu baslatma hatasi.";
+}
+
 function getPool() {
     if (!pool) {
         throw new Error("DB pool henuz hazir degil.");
@@ -304,7 +322,7 @@ app.use(["/api", "/auth", "/health"], async (_req, res, next) => {
         next();
     } catch (error) {
         console.error("App init error:", error);
-        res.status(500).json({ message: "Sunucu baslatma hatasi." });
+        res.status(500).json({ message: getStartupErrorMessage(error) });
     }
 });
 
