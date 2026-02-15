@@ -350,7 +350,7 @@ async function submitAuth() {
         return;
     }
 
-    const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
+    const endpoint = isLogin ? "/api/login" : "/api/register";
     el.submitBtn.disabled = true;
     el.submitBtn.innerText = isLogin ? "Giriş yapılıyor..." : "Kayıt oluşturuluyor...";
 
@@ -426,7 +426,7 @@ async function submitAuth() {
 
 async function resendVerification(username) {
     try {
-        const response = await fetch("/api/auth/resend-verification", {
+        const response = await fetch("/api/resend-verification", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"

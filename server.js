@@ -174,7 +174,7 @@ function createVerificationToken() {
 }
 
 async function sendVerificationEmail({ to, username, token, requestBaseUrl }) {
-    const verificationLink = `${requestBaseUrl}/api/auth/verify?token=${token}`;
+    const verificationLink = `${requestBaseUrl}/api/verify?token=${token}`;
 
     if (!smtpEnabled || !mailTransporter) {
         console.log(`[EMAIL VERIFY LINK] ${to} -> ${verificationLink}`);
@@ -308,7 +308,7 @@ app.use(["/api", "/auth", "/health"], async (_req, res, next) => {
     }
 });
 
-app.post(["/api/auth/register", "/auth/register"], async (req, res) => {
+app.post(["/api/auth/register", "/auth/register", "/api/register"], async (req, res) => {
     const { username, password, email } = req.body || {};
     const credentialsError = validateCredentials(username, password);
     if (credentialsError) {
@@ -364,7 +364,7 @@ app.post(["/api/auth/register", "/auth/register"], async (req, res) => {
             console.error("Verification email send error:", emailErrorInternal);
             emailResult = {
                 delivered: false,
-                verificationLink: `${requestBaseUrl}/api/auth/verify?token=${token.rawToken}`
+                verificationLink: `${requestBaseUrl}/api/verify?token=${token.rawToken}`
             };
         }
 
@@ -386,7 +386,7 @@ app.post(["/api/auth/register", "/auth/register"], async (req, res) => {
     }
 });
 
-app.post(["/api/auth/login", "/auth/login"], async (req, res) => {
+app.post(["/api/auth/login", "/auth/login", "/api/login"], async (req, res) => {
     const { username, password } = req.body || {};
     const validationError = validateCredentials(username, password);
 
@@ -427,7 +427,7 @@ app.post(["/api/auth/login", "/auth/login"], async (req, res) => {
     }
 });
 
-app.post(["/api/auth/resend-verification", "/auth/resend-verification"], async (req, res) => {
+app.post(["/api/auth/resend-verification", "/auth/resend-verification", "/api/resend-verification"], async (req, res) => {
     const { username } = req.body || {};
     if (typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
         return res.status(400).json({ message: "Gecerli bir kullanici adi gir." });
@@ -468,7 +468,7 @@ app.post(["/api/auth/resend-verification", "/auth/resend-verification"], async (
     }
 });
 
-app.get(["/api/auth/verify", "/auth/verify"], async (req, res) => {
+app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) => {
     const rawToken = typeof req.query.token === "string" ? req.query.token.trim() : "";
     if (!rawToken || rawToken.length < 20) {
         return res.redirect("/auth.html?mode=login&verified=invalid");
