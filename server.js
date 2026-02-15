@@ -298,7 +298,7 @@ async function ensureAppInitialized() {
     return appInitPromise;
 }
 
-app.use("/api", async (_req, res, next) => {
+app.use(["/api", "/auth", "/health"], async (_req, res, next) => {
     try {
         await ensureAppInitialized();
         next();
@@ -308,7 +308,7 @@ app.use("/api", async (_req, res, next) => {
     }
 });
 
-app.post("/api/auth/register", async (req, res) => {
+app.post(["/api/auth/register", "/auth/register"], async (req, res) => {
     const { username, password, email } = req.body || {};
     const credentialsError = validateCredentials(username, password);
     if (credentialsError) {
@@ -386,7 +386,7 @@ app.post("/api/auth/register", async (req, res) => {
     }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post(["/api/auth/login", "/auth/login"], async (req, res) => {
     const { username, password } = req.body || {};
     const validationError = validateCredentials(username, password);
 
@@ -427,7 +427,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 });
 
-app.post("/api/auth/resend-verification", async (req, res) => {
+app.post(["/api/auth/resend-verification", "/auth/resend-verification"], async (req, res) => {
     const { username } = req.body || {};
     if (typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
         return res.status(400).json({ message: "Gecerli bir kullanici adi gir." });
@@ -468,7 +468,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     }
 });
 
-app.get("/api/auth/verify", async (req, res) => {
+app.get(["/api/auth/verify", "/auth/verify"], async (req, res) => {
     const rawToken = typeof req.query.token === "string" ? req.query.token.trim() : "";
     if (!rawToken || rawToken.length < 20) {
         return res.redirect("/auth.html?mode=login&verified=invalid");
@@ -514,7 +514,7 @@ app.get("/api/auth/verify", async (req, res) => {
     }
 });
 
-app.get("/api/health", async (_req, res) => {
+app.get(["/api/health", "/health"], async (_req, res) => {
     try {
         await getPool().query("SELECT 1");
         res.json({ ok: true });

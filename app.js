@@ -2,10 +2,164 @@
 const SHOP_CATEGORY_DELAY_MS = 700;
 const PAGE_TRANSITION_DURATION_MS = 420;
 const AUTH_MODE_SWITCH_DELAY_MS = 140;
+const LOGIN_REDIRECT_DELAY_MS = 700;
+const TOAST_EXIT_MS = 240;
 let isLogin = true;
 let shopCategoryTimer = null;
 let authModeInitialized = false;
 let authModeTimer = null;
+let toastHost = null;
+let confirmUi = null;
+let activeConfirmResolver = null;
+
+function getToastHost() {
+    if (toastHost) {
+        return toastHost;
+    }
+
+    if (!document.body) {
+        return null;
+    }
+
+    toastHost = document.createElement("div");
+    toastHost.className = "ui-toast-host";
+    toastHost.setAttribute("aria-live", "polite");
+    toastHost.setAttribute("aria-atomic", "false");
+    document.body.appendChild(toastHost);
+    return toastHost;
+}
+
+function showToast(message, type = "info", options = {}) {
+    if (!message) {
+        return;
+    }
+
+    const host = getToastHost();
+    if (!host) {
+        return;
+    }
+
+    const duration = Number.isFinite(options.duration) ? Math.max(1200, options.duration) : 3800;
+    const safeType = ["success", "error", "info"].includes(type) ? type : "info";
+    const toast = document.createElement("div");
+    toast.className = `ui-toast ui-toast-${safeType}`;
+    toast.textContent = String(message);
+
+    host.appendChild(toast);
+    window.requestAnimationFrame(() => {
+        toast.classList.add("visible");
+    });
+
+    window.setTimeout(() => {
+        toast.classList.remove("visible");
+        toast.classList.add("is-hiding");
+        window.setTimeout(() => {
+            toast.remove();
+        }, TOAST_EXIT_MS);
+    }, duration);
+}
+
+function ensureConfirmUi() {
+    if (confirmUi) {
+        return confirmUi;
+    }
+
+    if (!document.body) {
+        return null;
+    }
+
+    const overlay = document.createElement("div");
+    overlay.className = "ui-confirm-overlay";
+    overlay.innerHTML = `
+        <div class="ui-confirm-card" role="dialog" aria-modal="true" aria-labelledby="uiConfirmTitle">
+            <p class="ui-confirm-kicker">DELOSMC</p>
+            <h3 id="uiConfirmTitle">Onay Gerekli</h3>
+            <p id="uiConfirmMessage"></p>
+            <div class="ui-confirm-actions">
+                <button type="button" class="ui-confirm-btn ui-confirm-cancel" data-action="cancel">Vazgeç</button>
+                <button type="button" class="ui-confirm-btn ui-confirm-approve" data-action="approve">Tekrar Gönder</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const title = overlay.querySelector("#uiConfirmTitle");
+    const message = overlay.querySelector("#uiConfirmMessage");
+    const cancelBtn = overlay.querySelector("[data-action=\"cancel\"]");
+    const approveBtn = overlay.querySelector("[data-action=\"approve\"]");
+
+    const close = (result) => {
+        overlay.classList.remove("visible");
+        document.body.classList.remove("popup-open");
+        const resolver = activeConfirmResolver;
+        activeConfirmResolver = null;
+        if (resolver) {
+            resolver(result);
+        }
+    };
+
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            close(false);
+        }
+    });
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener("click", () => close(false));
+    }
+
+    if (approveBtn) {
+        approveBtn.addEventListener("click", () => close(true));
+    }
+
+    document.addEventListener("keydown", (event) => {
+        if (!overlay.classList.contains("visible")) {
+            return;
+        }
+
+        if (event.key === "Escape") {
+            event.preventDefault();
+            close(false);
+        } else if (event.key === "Enter") {
+            event.preventDefault();
+            close(true);
+        }
+    });
+
+    confirmUi = {
+        overlay,
+        title,
+        message,
+        cancelBtn,
+        approveBtn
+    };
+
+    return confirmUi;
+}
+
+function showConfirm(message, options = {}) {
+    const ui = ensureConfirmUi();
+    if (!ui) {
+        return Promise.resolve(false);
+    }
+
+    if (activeConfirmResolver) {
+        activeConfirmResolver(false);
+        activeConfirmResolver = null;
+    }
+
+    ui.title.textContent = options.title || "Onay Gerekli";
+    ui.message.textContent = String(message || "Devam etmek istiyor musun?");
+    ui.cancelBtn.textContent = options.cancelText || "Vazgeç";
+    ui.approveBtn.textContent = options.approveText || "Onayla";
+
+    ui.overlay.classList.add("visible");
+    document.body.classList.add("popup-open");
+
+    return new Promise((resolve) => {
+        activeConfirmResolver = resolve;
+    });
+}
 
 function getAuthElements() {
     return {
@@ -192,7 +346,7 @@ async function submitAuth() {
     const password = el.password.value;
 
     if (!username || !password || (!isLogin && !email)) {
-        alert("Alanları boş bırakma.");
+        showToast("Alanları boş bırakma.", "error");
         return;
     }
 
@@ -222,8 +376,13 @@ async function submitAuth() {
                 payload.requiresEmailVerification
             ) {
                 const hint = payload.emailHint ? ` (${payload.emailHint})` : "";
-                const resendConfirm = confirm(
-                    `Hesabin dogrulanmamis${hint}. Dogrulama mailini tekrar gondermek ister misin?`
+                const resendConfirm = await showConfirm(
+                    `Hesabın doğrulanmamış${hint}. Doğrulama mailini tekrar göndermek ister misin?`,
+                    {
+                        title: "E-posta Doğrulama",
+                        cancelText: "Sonra",
+                        approveText: "Tekrar Gönder"
+                    }
                 );
 
                 if (resendConfirm) {
@@ -232,28 +391,33 @@ async function submitAuth() {
                 return;
             }
 
-            alert(payload.message || "İşlem başarısız.");
+            showToast(payload.message || "İşlem başarısız.", "error");
             return;
         }
 
         if (isLogin) {
             sessionStorage.setItem("logged_user", payload.username || username);
-            alert("Giriş başarılı.");
-            window.location.href = "/mainpage.html";
+            showToast("Giriş başarılı.", "success", { duration: 1800 });
+            window.setTimeout(() => {
+                window.location.href = "/mainpage.html";
+            }, LOGIN_REDIRECT_DELAY_MS);
             return;
         }
 
-        const registerMessage = payload.message || "Kayit basarili. E-posta dogrulama linki gonderildi.";
-        alert(registerMessage);
+        const registerMessageRaw = typeof payload.message === "string"
+            ? payload.message
+            : "Kayıt başarılı. E-posta doğrulama linki gönderildi.";
+        const registerMessage = registerMessageRaw.replace(/^Kayit basarili/i, "Kayıt başarılı");
+        showToast(registerMessage, "success", { duration: 5000 });
 
         if (payload.devVerificationLink) {
-            alert(`Gelistirme linki: ${payload.devVerificationLink}`);
+            showToast(`Geliştirme linki: ${payload.devVerificationLink}`, "info", { duration: 9000 });
         }
 
         el.password.value = "";
         openLogin();
     } catch (error) {
-        alert("Sunucuya bağlanılamadı.");
+        showToast("Sunucuya bağlanılamadı.", "error");
     } finally {
         el.submitBtn.disabled = false;
         el.submitBtn.innerText = isLogin ? "Giriş Yap" : "Kayıt Ol";
@@ -272,16 +436,16 @@ async function resendVerification(username) {
 
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-            alert(payload.message || "Dogrulama maili tekrar gonderilemedi.");
+            showToast(payload.message || "Doğrulama maili tekrar gönderilemedi.", "error");
             return;
         }
 
-        alert(payload.message || "Dogrulama maili tekrar gonderildi.");
+        showToast(payload.message || "Doğrulama maili tekrar gönderildi.", "success");
         if (payload.devVerificationLink) {
-            alert(`Gelistirme linki: ${payload.devVerificationLink}`);
+            showToast(`Geliştirme linki: ${payload.devVerificationLink}`, "info", { duration: 9000 });
         }
     } catch (error) {
-        alert("Sunucuya baglanilamadi.");
+        showToast("Sunucuya bağlanılamadı.", "error");
     }
 }
 
@@ -554,11 +718,11 @@ function initAuthPage() {
     const mode = params.get("mode");
 
     if (verifiedStatus === "success") {
-        alert("E-posta dogrulandi. Simdi giris yapabilirsin.");
+        showToast("E-posta doğrulandı. Şimdi giriş yapabilirsin.", "success", { duration: 4500 });
     } else if (verifiedStatus === "expired" || verifiedStatus === "invalid") {
-        alert("Dogrulama linki gecersiz veya suresi dolmus.");
+        showToast("Doğrulama linki geçersiz veya süresi dolmuş.", "error", { duration: 5000 });
     } else if (verifiedStatus === "error") {
-        alert("Dogrulama sirasinda bir hata olustu.");
+        showToast("Doğrulama sırasında bir hata oluştu.", "error");
     }
 
     setAuthMode(mode !== "register", { animate: false });
