@@ -587,12 +587,12 @@ nav a:hover {
 }
 
 .clash-sword-left {
-    transform-origin: 50% 72%;
+    transform-origin: 50% 84%;
     animation: swordLeft 0.9s ease-in-out infinite;
 }
 
 .clash-sword-right {
-    transform-origin: 50% 72%;
+    transform-origin: 50% 84%;
     animation: swordRight 0.9s ease-in-out infinite;
 }
 
@@ -715,20 +715,32 @@ nav a:hover {
 @keyframes swordLeft {
     0%,
     100% {
-        transform: translate(-18px, 8px) rotate(-38deg);
+        transform: translate(-24px, 10px) rotate(-34deg);
+    }
+    45% {
+        transform: translate(-13px, 0) rotate(-47deg);
     }
     50% {
-        transform: translate(-2px, -4px) rotate(-52deg);
+        transform: translate(-11px, -1px) rotate(-49deg);
+    }
+    55% {
+        transform: translate(-13px, 0) rotate(-47deg);
     }
 }
 
 @keyframes swordRight {
     0%,
     100% {
-        transform: translate(18px, 8px) rotate(38deg);
+        transform: translate(24px, 10px) rotate(34deg);
+    }
+    45% {
+        transform: translate(13px, 0) rotate(47deg);
     }
     50% {
-        transform: translate(2px, -4px) rotate(52deg);
+        transform: translate(11px, -1px) rotate(49deg);
+    }
+    55% {
+        transform: translate(13px, 0) rotate(47deg);
     }
 }
 
