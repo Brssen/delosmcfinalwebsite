@@ -1,0 +1,199 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>DelosMC | Mağaza</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="shop-page has-footer">
+
+<header>
+    <div class="logo">DELOSMC</div>
+    <nav>
+        <a href="mainpage.html">Anasayfa</a>
+        <a href="store.html">Mağaza</a>
+        <a href="#">Discord</a>
+        <a href="#">Wiki</a>
+    </nav>
+    <div class="header-actions">
+        <div class="auth-buttons">
+            <a href="auth.html?mode=register" class="auth-link">Kayıt Ol</a>
+            <a href="auth.html?mode=login" class="auth-link outline">Giriş Yap</a>
+        </div>
+        <button type="button" id="cartToggleBtn" class="cart-toggle" aria-label="Sepeti aç">
+            <span class="cart-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M7 4H3v2h2l2.6 10.6A2 2 0 009.54 18H19v-2H9.54L9 14h10a2 2 0 001.94-1.5L23 7H8.42L7.9 5.1A2 2 0 006 4zm2 16a2 2 0 100 4 2 2 0 000-4zm9 0a2 2 0 100 4 2 2 0 000-4z"/>
+                </svg>
+            </span>
+            <span class="cart-count" id="cartCountBadge">0</span>
+        </button>
+    </div>
+</header>
+
+<section class="shop-hero">
+    <h1>Sunucu Mağazası</h1>
+    <p>Karakterini güçlendir. Rakiplerini ez.</p>
+</section>
+
+<section class="shop-category-bar" aria-label="Mağaza kategorileri">
+    <button type="button" class="shop-category-btn active" data-category="anahtarlar">
+        <span class="chip-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path d="M14 8a4 4 0 11.001 8.001A4 4 0 0114 8zm0 2a2 2 0 100 4 2 2 0 000-4zM2 13h8v2H8v2H6v-2H2v-2z" />
+            </svg>
+        </span>
+        Anahtarlar
+    </button>
+    <button type="button" class="shop-category-btn" data-category="vipler">
+        <span class="chip-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path d="M3 7l4 4 5-6 5 6 4-4-2 11H5L3 7zm4.2 9h9.6l.6-3.5-1.7 1.6-4.7-5.6-4.7 5.6-1.7-1.6.6 3.5z" />
+            </svg>
+        </span>
+        VIPler
+    </button>
+</section>
+
+<section class="shop-stage">
+    <div class="shop-loading" id="shopLoading" aria-live="polite">
+        <div class="cute-loader">
+            <div class="cute-loader-face" aria-hidden="true">
+                <span class="cute-eye"></span>
+                <span class="cute-eye"></span>
+                <span class="cute-mouth"></span>
+                <span class="cute-blush left"></span>
+                <span class="cute-blush right"></span>
+            </div>
+            <p>Kategori hazırlanıyor...</p>
+            <div class="loader-dots" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <section class="shop-container" id="shopProducts">
+    <article class="shop-card" data-category="anahtarlar">
+        <div class="card-image kasa"></div>
+        <h2>Efsanevi Kasa</h2>
+        <p>Rastgele epik item kazan.</p>
+        <span class="price">99₺</span>
+        <button type="button" class="add-to-cart" data-name="Efsanevi Kasa" data-price="99">Sepete Ekle</button>
+    </article>
+
+    <article class="shop-card" data-category="anahtarlar">
+        <div class="card-image boss"></div>
+        <h2>Boss Anahtarı</h2>
+        <p>Özel boss zindanına giriş.</p>
+        <span class="price">79₺</span>
+        <button type="button" class="add-to-cart" data-name="Boss Anahtarı" data-price="79">Sepete Ekle</button>
+    </article>
+
+    <article class="shop-card" data-category="vipler">
+        <div class="card-image vipplus"></div>
+        <h2>VİP+</h2>
+        <p>Temel VIP avantajları ve özel sohbet etiketi.</p>
+        <span class="price">149₺</span>
+        <button type="button" class="add-to-cart" data-name="VİP+" data-price="149">Sepete Ekle</button>
+    </article>
+
+    <article class="shop-card" data-category="vipler">
+        <div class="card-image helios"></div>
+        <h2>Helios</h2>
+        <p>Parlak kozmetik seti ve ekstra günlük ödüller.</p>
+        <span class="price">229₺</span>
+        <button type="button" class="add-to-cart" data-name="Helios" data-price="229">Sepete Ekle</button>
+    </article>
+
+    <article class="shop-card" data-category="vipler">
+        <div class="card-image titanborn"></div>
+        <h2>Titanborn</h2>
+        <p>Daha güçlü kitler ve özel etkinlik erişimi.</p>
+        <span class="price">319₺</span>
+        <button type="button" class="add-to-cart" data-name="Titanborn" data-price="319">Sepete Ekle</button>
+    </article>
+
+    <article class="shop-card" data-category="vipler">
+        <div class="card-image aetherion"></div>
+        <h2>Aetherion</h2>
+        <p>Gelişmiş güçlendirmeler ve premium taşıma hakları.</p>
+        <span class="price">429₺</span>
+        <button type="button" class="add-to-cart" data-name="Aetherion" data-price="429">Sepete Ekle</button>
+    </article>
+
+    <article class="shop-card" data-category="vipler">
+        <div class="card-image delosvip"></div>
+        <h2>Delos Vip</h2>
+        <p>Tüm VIP katmanlarını içeren en üst seviye paket.</p>
+        <span class="price">549₺</span>
+        <button type="button" class="add-to-cart" data-name="Delos Vip" data-price="549">Sepete Ekle</button>
+    </article>
+    </section>
+</section>
+
+<div class="cart-overlay" id="cartOverlay"></div>
+<aside class="cart-drawer" id="cartDrawer" aria-label="Sepet">
+    <div class="cart-header">
+        <h2>
+            <span class="cart-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M7 4H3v2h2l2.6 10.6A2 2 0 009.54 18H19v-2H9.54L9 14h10a2 2 0 001.94-1.5L23 7H8.42L7.9 5.1A2 2 0 006 4z"/>
+                </svg>
+            </span>
+            Sepetin
+        </h2>
+        <button type="button" id="closeCartBtn" class="close-cart">✕</button>
+    </div>
+
+    <ul id="cartItems" class="cart-items"></ul>
+
+    <div class="cart-summary">
+        <p class="cart-total">Toplam: <span id="cartTotal">0₺</span></p>
+        <button type="button" id="clearCartBtn" class="clear-cart">Sepeti Temizle</button>
+        <button type="button" class="checkout-btn">Satın Al</button>
+    </div>
+</aside>
+
+<footer class="site-footer">
+    <div class="footer-content">
+        <div class="footer-brand">
+            <h3>DELOSMC</h3>
+            <p>En güçlü anahtarları ve VIP paketleri al, sunucuda karakterini bir üst seviyeye taşı.</p>
+        </div>
+
+        <div class="footer-nav">
+            <a href="mainpage.html">Anasayfa</a>
+            <a href="store.html">Mağaza</a>
+            <a href="#">Discord</a>
+            <a href="#">Wiki</a>
+        </div>
+
+        <div class="footer-social">
+            <a href="#" class="social-icon kick" aria-label="Kick">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 3h5v6h2.2L15 5h5l-6 6 6 6h-5l-3.8-4H9v6H4V3z" />
+                </svg>
+            </a>
+            <a href="#" class="social-icon youtube" aria-label="YouTube">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M21 8.5a2.5 2.5 0 00-1.76-1.77C17.7 6.3 12 6.3 12 6.3s-5.7 0-7.24.43A2.5 2.5 0 003 8.5 26 26 0 003 12a26 26 0 00.43 3.5 2.5 2.5 0 001.76 1.77c1.54.43 7.24.43 7.24.43s5.7 0 7.24-.43A2.5 2.5 0 0021 15.5c.3-1.15.43-2.33.43-3.5s-.14-2.35-.43-3.5z" />
+                    <path d="M10 9.5v5l4.5-2.5L10 9.5z" fill="#07101f" />
+                </svg>
+            </a>
+            <a href="#" class="social-icon instagram" aria-label="Instagram">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" stroke="none" />
+                </svg>
+            </a>
+        </div>
+    </div>
+    <p class="footer-copy">© 2026 DelosMC. Tüm hakları saklıdır.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
