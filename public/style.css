@@ -715,32 +715,32 @@ nav a:hover {
 @keyframes swordLeft {
     0%,
     100% {
-        transform: translate(-28px, 24px) rotate(-20deg);
+        transform: translate(-28px, 24px) rotate(20deg);
     }
     45% {
-        transform: translate(-12px, 10px) rotate(-39deg);
+        transform: translate(-12px, 10px) rotate(39deg);
     }
     50% {
-        transform: translate(-8px, 8px) rotate(-43deg);
+        transform: translate(-8px, 8px) rotate(43deg);
     }
     55% {
-        transform: translate(-12px, 10px) rotate(-39deg);
+        transform: translate(-12px, 10px) rotate(39deg);
     }
 }
 
 @keyframes swordRight {
     0%,
     100% {
-        transform: translate(28px, 24px) rotate(20deg);
+        transform: translate(28px, 24px) rotate(-20deg);
     }
     45% {
-        transform: translate(12px, 10px) rotate(39deg);
+        transform: translate(12px, 10px) rotate(-39deg);
     }
     50% {
-        transform: translate(8px, 8px) rotate(43deg);
+        transform: translate(8px, 8px) rotate(-43deg);
     }
     55% {
-        transform: translate(12px, 10px) rotate(39deg);
+        transform: translate(12px, 10px) rotate(-39deg);
     }
 }
 
