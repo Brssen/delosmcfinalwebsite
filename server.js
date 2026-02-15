@@ -13,7 +13,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_TOKEN_MINUTES = Number(process.env.EMAIL_VERIFY_TTL_MINUTES || 60);
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const DB_SSL = String(process.env.DB_SSL || "true").toLowerCase() === "true";
-const DB_ENABLE_CHANNEL_BINDING = String(process.env.DB_ENABLE_CHANNEL_BINDING || "false").toLowerCase() === "true";
+const DB_ENABLE_CHANNEL_BINDING = String(process.env.DB_ENABLE_CHANNEL_BINDING || "true").toLowerCase() === "true";
 const DB_FALLBACK_CONFIG = {
     host: process.env.DB_HOST || "localhost",
     port: Number(process.env.DB_PORT || 5432),
