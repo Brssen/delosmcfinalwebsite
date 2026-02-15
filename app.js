@@ -239,7 +239,7 @@ async function submitAuth() {
         if (isLogin) {
             sessionStorage.setItem("logged_user", payload.username || username);
             alert("Giriş başarılı.");
-            window.location.href = "mainpage.html";
+            window.location.href = "/mainpage.html";
             return;
         }
 
