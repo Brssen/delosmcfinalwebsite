@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>DelosMC | Giriş ve Kayıt</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-page">
+<header>
+    <div class="logo">DELOSMC</div>
+    <nav>
+        <a href="/mainpage.html">Anasayfa</a>
+        <a href="/store.html">Mağaza</a>
+        <a href="#">Discord</a>
+        <a href="#">Wiki</a>
+    </nav>
+</header>
+
+<main class="auth-shell">
+    <section class="auth-showcase">
+        <p class="auth-kicker">DELOSMC HESAP</p>
+        <h1>Hesabını aç, savaşa hızlıca katıl.</h1>
+        <p>Tek panelden kayıt ol, giriş yap ve hesabını güvenle yönet. DelosMC mağazası ve sunucuya erişim tek hesapla hazır.</p>
+        <ul class="auth-points">
+            <li>Hızlı kayıt ve giriş</li>
+            <li>MySQL tabanlı hesap depolama</li>
+            <li>E-posta doğrulama ile güvenli hesap açma</li>
+            <li>Mağaza ile senkron kullanıcı akışı</li>
+        </ul>
+    </section>
+
+    <section class="auth-card">
+        <div class="auth-toggle">
+            <button type="button" onclick="openLogin()" id="loginTab" class="auth-tab active">Giriş Yap</button>
+            <button type="button" onclick="openRegister()" id="registerTab" class="auth-tab">Kayıt Ol</button>
+        </div>
+
+        <h2 id="modalTitle">Giriş Yap</h2>
+        <p id="authSubtitle" class="auth-subtitle">Hesabınla devam et.</p>
+
+        <div class="auth-field">
+            <label for="username">Kullanıcı Adı</label>
+            <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z"/>
+                    </svg>
+                </span>
+                <input type="text" id="username" placeholder="Kullanıcı adın" autocomplete="username">
+            </div>
+        </div>
+
+        <div class="auth-field hidden" id="emailField">
+            <label for="email">E-posta</label>
+            <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v.4l-9 5.6-9-5.6V6zm0 3.2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9.2l-8.5 5.3a1 1 0 0 1-1 0L3 9.2z"/>
+                    </svg>
+                </span>
+                <input type="email" id="email" placeholder="ornek@mail.com" autocomplete="email">
+            </div>
+        </div>
+
+        <div class="auth-field">
+            <label for="password">Şifre</label>
+            <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M17 8h-1V6a4 4 0 10-8 0v2H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V10a2 2 0 00-2-2zm-6 9.73V19a1 1 0 002 0v-1.27a2 2 0 10-2 0zM10 8V6a2 2 0 114 0v2h-4z"/>
+                    </svg>
+                </span>
+                <input type="password" id="password" placeholder="Şifren" autocomplete="current-password">
+            </div>
+        </div>
+
+        <button type="button" onclick="submitAuth()" id="submitBtn" class="auth-submit">Giriş Yap</button>
+        <p id="switchText" class="auth-switch">Hesabın yok mu? <a href="#" onclick="openRegister(); return false;">Kayıt Ol</a></p>
+    </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

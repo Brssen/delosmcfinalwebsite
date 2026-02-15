@@ -1,5 +1,6 @@
 ﻿const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -37,7 +38,8 @@ const smtpConfig = {
 };
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
-const STATIC_ROOT = process.cwd();
+const PUBLIC_ROOT = path.join(process.cwd(), "public");
+const STATIC_ROOT = fs.existsSync(PUBLIC_ROOT) ? PUBLIC_ROOT : process.cwd();
 const smtpEnabled = Boolean(smtpConfig.host && smtpConfig.user && smtpConfig.pass && smtpConfig.from);
 const mailTransporter = smtpEnabled
     ? nodemailer.createTransport({
