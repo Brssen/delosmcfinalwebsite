@@ -1,7 +1,7 @@
 ﻿const express = require("express");
 const path = require("path");
 const fs = require("fs");
-const mysql = require("mysql2/promise");
+const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
@@ -9,23 +9,17 @@ require("dotenv").config();
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const DB_NAME = process.env.DB_NAME || "delosmc";
-const DB_IDENTIFIER_PATTERN = /^[a-zA-Z0-9_]+$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_TOKEN_MINUTES = Number(process.env.EMAIL_VERIFY_TTL_MINUTES || 60);
-const IS_VERCEL = process.env.VERCEL === "1";
-const SHOULD_BOOTSTRAP_DB = !IS_VERCEL && String(process.env.DB_BOOTSTRAP || "true").toLowerCase() === "true";
-
-if (!DB_IDENTIFIER_PATTERN.test(DB_NAME)) {
-    throw new Error("DB_NAME yalnizca harf, sayi ve alt cizgi icerebilir.");
-}
-
-const dbConfig = {
+const DATABASE_URL = process.env.DATABASE_URL || "";
+const DB_SSL = String(process.env.DB_SSL || "true").toLowerCase() === "true";
+const DB_ENABLE_CHANNEL_BINDING = String(process.env.DB_ENABLE_CHANNEL_BINDING || "false").toLowerCase() === "true";
+const DB_FALLBACK_CONFIG = {
     host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
+    port: Number(process.env.DB_PORT || 5432),
+    user: process.env.DB_USER || "postgres",
     password: process.env.DB_PASSWORD || "",
-    charset: "utf8mb4"
+    database: process.env.DB_NAME || "delosmc"
 };
 
 const smtpConfig = {
@@ -60,16 +54,20 @@ let smtpChecked = false;
 function getStartupErrorMessage(error) {
     const code = error && typeof error === "object" ? error.code : "";
 
-    if (code === "ECONNREFUSED" || code === "ETIMEDOUT") {
-        return "Veritabani baglantisi kurulamadi. Vercel DB_HOST/DB_PORT ayarlarini kontrol et.";
+    if (code === "ECONNREFUSED" || code === "ETIMEDOUT" || code === "ENOTFOUND") {
+        return "Veritabani baglantisi kurulamadi. DATABASE_URL veya DB_HOST/DB_PORT ayarlarini kontrol et.";
     }
 
-    if (code === "ER_ACCESS_DENIED_ERROR") {
-        return "Veritabani kullanici bilgileri hatali. DB_USER ve DB_PASSWORD degerlerini kontrol et.";
+    if (code === "28P01") {
+        return "Veritabani kullanici bilgileri hatali. DATABASE_URL icindeki kullanici/sifre bilgisini kontrol et.";
     }
 
-    if (code === "ER_BAD_DB_ERROR") {
-        return "Veritabani bulunamadi. DB_NAME degerini kontrol et.";
+    if (code === "3D000") {
+        return "Veritabani bulunamadi. DATABASE_URL icindeki veritabani adini kontrol et.";
+    }
+
+    if (code === "SELF_SIGNED_CERT_IN_CHAIN") {
+        return "SSL hatasi alindi. Neon icin DB_SSL=true olarak ayarla.";
     }
 
     return "Sunucu baslatma hatasi.";
@@ -88,21 +86,23 @@ function createDatabasePool() {
         return;
     }
 
-    pool = mysql.createPool({
-        ...dbConfig,
-        database: DB_NAME,
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-    });
-}
+    const baseConfig = DATABASE_URL
+        ? { connectionString: DATABASE_URL }
+        : DB_FALLBACK_CONFIG;
 
-async function ensureDatabaseExists() {
-    const bootstrapConnection = await mysql.createConnection(dbConfig);
-    await bootstrapConnection.query(
-        `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-    );
-    await bootstrapConnection.end();
+    const shouldUseSsl = DB_SSL || /sslmode=require/i.test(DATABASE_URL);
+    pool = new Pool({
+        ...baseConfig,
+        max: Number(process.env.DB_POOL_MAX || 10),
+        idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
+        connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000),
+        ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
+        enableChannelBinding: DB_ENABLE_CHANNEL_BINDING
+    });
+
+    pool.on("error", (error) => {
+        console.error("PostgreSQL pool error:", error);
+    });
 }
 
 function getRequestBaseUrl(req) {
@@ -224,52 +224,31 @@ async function sendVerificationEmail({ to, username, token, requestBaseUrl }) {
 async function ensureUsersSchema() {
     await getPool().query(`
         CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id BIGSERIAL PRIMARY KEY,
             username VARCHAR(32) NOT NULL UNIQUE,
-            email VARCHAR(255) NULL,
+            email VARCHAR(255),
             password_hash VARCHAR(255) NOT NULL,
-            is_verified TINYINT(1) NOT NULL DEFAULT 1,
-            verification_token_hash CHAR(64) NULL,
-            verification_expires_at DATETIME NULL,
-            email_verified_at DATETIME NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            is_verified BOOLEAN NOT NULL DEFAULT TRUE,
+            verification_token_hash CHAR(64),
+            verification_expires_at TIMESTAMPTZ,
+            email_verified_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
     `);
 
-    const [columns] = await getPool().query("SHOW COLUMNS FROM users");
-    const columnNames = new Set(columns.map((column) => column.Field));
-
-    if (!columnNames.has("email")) {
-        await getPool().query("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL AFTER username");
-    }
-
-    if (!columnNames.has("is_verified")) {
-        await getPool().query("ALTER TABLE users ADD COLUMN is_verified TINYINT(1) NOT NULL DEFAULT 1 AFTER password_hash");
-    }
-
-    if (!columnNames.has("verification_token_hash")) {
-        await getPool().query("ALTER TABLE users ADD COLUMN verification_token_hash CHAR(64) NULL AFTER is_verified");
-    }
-
-    if (!columnNames.has("verification_expires_at")) {
-        await getPool().query("ALTER TABLE users ADD COLUMN verification_expires_at DATETIME NULL AFTER verification_token_hash");
-    }
-
-    if (!columnNames.has("email_verified_at")) {
-        await getPool().query("ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER verification_expires_at");
-    }
-
-    const [emailIndex] = await getPool().query("SHOW INDEX FROM users WHERE Key_name = 'idx_users_email'");
-    if (emailIndex.length === 0) {
-        await getPool().query("CREATE UNIQUE INDEX idx_users_email ON users (email)");
-    }
+    await getPool().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)");
+    await getPool().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE");
+    await getPool().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token_hash CHAR(64)");
+    await getPool().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMPTZ");
+    await getPool().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ");
+    await getPool().query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)");
 }
 
 async function sendNewVerificationLink(userId, username, email, requestBaseUrl) {
     const token = createVerificationToken();
 
     await getPool().query(
-        "UPDATE users SET verification_token_hash = ?, verification_expires_at = ?, is_verified = 0, email_verified_at = NULL WHERE id = ?",
+        "UPDATE users SET verification_token_hash = $1, verification_expires_at = $2, is_verified = FALSE, email_verified_at = NULL WHERE id = $3",
         [token.tokenHash, token.expiresAt, userId]
     );
 
@@ -286,10 +265,6 @@ app.use(express.json());
 async function ensureAppInitialized() {
     if (!appInitPromise) {
         appInitPromise = (async () => {
-            if (SHOULD_BOOTSTRAP_DB) {
-                await ensureDatabaseExists();
-            }
-
             createDatabasePool();
             await ensureUsersSchema();
 
@@ -343,13 +318,13 @@ app.post(["/api/auth/register", "/auth/register", "/api/register"], async (req, 
     const requestBaseUrl = getRequestBaseUrl(req);
 
     try {
-        const [existing] = await getPool().query(
-            "SELECT id, username, email FROM users WHERE username = ? OR email = ? LIMIT 1",
+        const existingResult = await getPool().query(
+            "SELECT id, username, email FROM users WHERE username = $1 OR email = $2 LIMIT 1",
             [cleanUsername, cleanEmail]
         );
 
-        if (existing.length > 0) {
-            const [conflict] = existing;
+        if (existingResult.rows.length > 0) {
+            const [conflict] = existingResult.rows;
             if (conflict.username === cleanUsername) {
                 return res.status(409).json({ message: "Bu kullanici adi zaten var." });
             }
@@ -365,7 +340,7 @@ app.post(["/api/auth/register", "/auth/register", "/api/register"], async (req, 
         await getPool().query(
             `
                 INSERT INTO users (username, email, password_hash, is_verified, verification_token_hash, verification_expires_at)
-                VALUES (?, ?, ?, 0, ?, ?)
+                VALUES ($1, $2, $3, FALSE, $4, $5)
             `,
             [cleanUsername, cleanEmail, passwordHash, token.tokenHash, token.expiresAt]
         );
@@ -415,12 +390,12 @@ app.post(["/api/auth/login", "/auth/login", "/api/login"], async (req, res) => {
     const cleanUsername = username.trim();
 
     try {
-        const [rows] = await getPool().query(
-            "SELECT id, username, email, password_hash, is_verified FROM users WHERE username = ? LIMIT 1",
+        const userResult = await getPool().query(
+            "SELECT id, username, email, password_hash, is_verified FROM users WHERE username = $1 LIMIT 1",
             [cleanUsername]
         );
 
-        const user = rows[0];
+        const user = userResult.rows[0];
         if (!user) {
             return res.status(401).json({ message: "Bilgiler yanlis." });
         }
@@ -454,12 +429,12 @@ app.post(["/api/auth/resend-verification", "/auth/resend-verification", "/api/re
     const cleanUsername = username.trim();
 
     try {
-        const [rows] = await getPool().query(
-            "SELECT id, username, email, is_verified FROM users WHERE username = ? LIMIT 1",
+        const userResult = await getPool().query(
+            "SELECT id, username, email, is_verified FROM users WHERE username = $1 LIMIT 1",
             [cleanUsername]
         );
 
-        const user = rows[0];
+        const user = userResult.rows[0];
         if (!user || !user.email) {
             return res.status(404).json({ message: "Kullanici bulunamadi." });
         }
@@ -495,12 +470,12 @@ app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) =>
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
     try {
-        const [rows] = await getPool().query(
+        const verifyResult = await getPool().query(
             `
                 SELECT id
                 FROM users
-                WHERE verification_token_hash = ?
-                  AND is_verified = 0
+                WHERE verification_token_hash = $1
+                  AND is_verified = FALSE
                   AND verification_expires_at IS NOT NULL
                   AND verification_expires_at > NOW()
                 LIMIT 1
@@ -508,7 +483,7 @@ app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) =>
             [tokenHash]
         );
 
-        const user = rows[0];
+        const user = verifyResult.rows[0];
         if (!user) {
             return res.redirect("/auth.html?mode=login&verified=expired");
         }
@@ -516,11 +491,11 @@ app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) =>
         await getPool().query(
             `
                 UPDATE users
-                SET is_verified = 1,
+                SET is_verified = TRUE,
                     verification_token_hash = NULL,
                     verification_expires_at = NULL,
                     email_verified_at = NOW()
-                WHERE id = ?
+                WHERE id = $1
             `,
             [user.id]
         );

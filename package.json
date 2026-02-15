@@ -1,7 +1,7 @@
 {
   "name": "delosmc-website",
   "version": "1.0.0",
-  "description": "DelosMC website with MySQL auth",
+  "description": "DelosMC website with PostgreSQL auth",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,7 +10,7 @@
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "mysql2": "^3.14.5",
-    "nodemailer": "^8.0.1"
+    "nodemailer": "^8.0.1",
+    "pg": "^8.18.0"
   }
 }
