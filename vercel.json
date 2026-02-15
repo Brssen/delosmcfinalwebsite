@@ -1,4 +1,17 @@
 {
+  "functions": {
+    "api/[...path].js": {
+      "includeFiles": [
+        "mainpage.html",
+        "auth.html",
+        "store.html",
+        "style.css",
+        "app.js",
+        "3d-fantasy-scene.jpg",
+        "assets/**"
+      ]
+    }
+  },
   "rewrites": [
     { "source": "/", "destination": "/mainpage.html" }
   ]

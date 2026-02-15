@@ -37,6 +37,7 @@ const smtpConfig = {
 };
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
+const STATIC_ROOT = process.cwd();
 const smtpEnabled = Boolean(smtpConfig.host && smtpConfig.user && smtpConfig.pass && smtpConfig.from);
 const mailTransporter = smtpEnabled
     ? nodemailer.createTransport({
@@ -520,10 +521,10 @@ app.get("/api/health", async (_req, res) => {
     }
 });
 
-app.use(express.static(__dirname));
+app.use(express.static(STATIC_ROOT));
 
 app.get("/", (_req, res) => {
-    res.sendFile(path.join(__dirname, "mainpage.html"));
+    res.sendFile(path.join(STATIC_ROOT, "mainpage.html"));
 });
 
 async function startServer() {
