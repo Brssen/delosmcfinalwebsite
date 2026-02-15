@@ -521,109 +521,92 @@ nav a:hover {
     pointer-events: auto;
 }
 
-.cute-loader {
+.clash-loader-wrap {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     text-align: center;
 }
 
-.cute-loader p {
+.clash-loader-wrap p {
     font-weight: 700;
-    color: #cbe0ff;
+    color: #d9e9ff;
 }
 
-.cute-loader-face {
-    width: 84px;
-    height: 70px;
-    border-radius: 18px;
-    border: 1px solid rgba(119, 156, 229, 0.55);
-    background: linear-gradient(160deg, #17345e 0%, #1f4a7f 100%);
+.clash-loader {
+    width: 148px;
+    height: 124px;
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    animation: loaderFloat 1.4s ease-in-out infinite;
-    box-shadow: 0 14px 24px rgba(0, 0, 0, 0.32);
+    display: grid;
+    place-items: center;
+    animation: clashPulse 1s ease-in-out infinite;
 }
 
-.cute-loader-face::before,
-.cute-loader-face::after {
-    content: "";
+.clash-sword {
     position: absolute;
-    top: -10px;
-    width: 18px;
-    height: 18px;
-    border-radius: 7px;
-    background: linear-gradient(160deg, #1d4d82 0%, #2c71b4 100%);
-    border: 1px solid rgba(119, 156, 229, 0.55);
+    inset: 0;
+    display: grid;
+    place-items: center;
 }
 
-.cute-loader-face::before {
-    left: 10px;
-}
-
-.cute-loader-face::after {
-    right: 10px;
-}
-
-.cute-eye {
+.clash-blade {
     width: 8px;
-    height: 8px;
+    height: 78px;
     border-radius: 999px;
-    background: #ecf7ff;
-    position: relative;
-    z-index: 1;
+    background: linear-gradient(180deg, #f8faff 0%, #d7e5ff 40%, #95b7e6 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+        0 0 14px rgba(153, 191, 255, 0.4);
 }
 
-.cute-mouth {
-    position: absolute;
-    bottom: 16px;
-    width: 20px;
-    height: 10px;
-    border-bottom: 2px solid #ecf7ff;
-    border-radius: 0 0 12px 12px;
-}
-
-.cute-blush {
-    position: absolute;
-    bottom: 18px;
-    width: 13px;
-    height: 8px;
+.clash-guard {
+    width: 30px;
+    height: 6px;
     border-radius: 999px;
-    background: rgba(255, 150, 189, 0.7);
+    margin-top: -4px;
+    background: linear-gradient(90deg, #d89c2d 0%, #f4cc68 50%, #d89c2d 100%);
+    box-shadow: 0 0 12px rgba(248, 201, 102, 0.32);
 }
 
-.cute-blush.left {
-    left: 13px;
-}
-
-.cute-blush.right {
-    right: 13px;
-}
-
-.loader-dots {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-.loader-dots span {
+.clash-grip {
     width: 8px;
-    height: 8px;
+    height: 26px;
+    margin-top: -1px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #3e2918 0%, #7f5732 100%);
+}
+
+.clash-pommel {
+    width: 12px;
+    height: 12px;
+    margin-top: -1px;
     border-radius: 999px;
-    background: var(--primary);
-    animation: loaderDot 0.9s ease-in-out infinite;
+    background: radial-gradient(circle at 30% 30%, #ffd88b 0%, #c9871f 75%);
+    box-shadow: 0 0 10px rgba(242, 171, 62, 0.34);
 }
 
-.loader-dots span:nth-child(2) {
-    animation-delay: 0.12s;
+.clash-sword-left {
+    transform-origin: 50% 72%;
+    animation: swordLeft 0.9s ease-in-out infinite;
 }
 
-.loader-dots span:nth-child(3) {
-    animation-delay: 0.24s;
+.clash-sword-right {
+    transform-origin: 50% 72%;
+    animation: swordRight 0.9s ease-in-out infinite;
+}
+
+.clash-spark {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: radial-gradient(circle, #fff9cf 0%, #ffd158 45%, rgba(255, 174, 35, 0) 75%);
+    filter: drop-shadow(0 0 10px rgba(255, 201, 93, 0.9));
+    animation: clashSpark 0.9s ease-in-out infinite;
 }
 
 .shop-card.is-hidden {
@@ -729,25 +712,53 @@ nav a:hover {
     transform: translateY(-1px);
 }
 
-@keyframes loaderFloat {
+@keyframes swordLeft {
     0%,
     100% {
-        transform: translateY(0);
+        transform: translate(-18px, 8px) rotate(-38deg);
     }
     50% {
-        transform: translateY(-6px);
+        transform: translate(-2px, -4px) rotate(-52deg);
     }
 }
 
-@keyframes loaderDot {
+@keyframes swordRight {
+    0%,
+    100% {
+        transform: translate(18px, 8px) rotate(38deg);
+    }
+    50% {
+        transform: translate(2px, -4px) rotate(52deg);
+    }
+}
+
+@keyframes clashSpark {
+    0%,
+    100% {
+        opacity: 0.2;
+        transform: translate(-50%, -50%) scale(0.5);
+    }
+    48% {
+        opacity: 0.2;
+        transform: translate(-50%, -50%) scale(0.5);
+    }
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.4);
+    }
+    60% {
+        opacity: 0.7;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes clashPulse {
     0%,
     100% {
         transform: translateY(0);
-        opacity: 0.7;
     }
     50% {
-        transform: translateY(-6px);
-        opacity: 1;
+        transform: translateY(-3px);
     }
 }
 
