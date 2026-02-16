@@ -1,5 +1,6 @@
 const CART_KEY = "delosmc_cart";
 const AUTH_USER_KEY = "delosmc_user";
+const AUTH_EMAIL_HINT_KEY = "delosmc_email_hint";
 const SHOP_CATEGORY_DELAY_MS = 700;
 const PAGE_TRANSITION_DURATION_MS = 420;
 const AUTH_MODE_SWITCH_DELAY_MS = 140;
@@ -175,6 +176,19 @@ function normalizeStoredUser(rawValue) {
     return cleanValue.slice(0, 32);
 }
 
+function normalizeEmailHint(rawValue) {
+    if (typeof rawValue !== "string") {
+        return "";
+    }
+
+    const cleanValue = rawValue.trim();
+    if (!cleanValue) {
+        return "";
+    }
+
+    return cleanValue.slice(0, 128);
+}
+
 function getStoredValue(storage, key) {
     try {
         return storage.getItem(key);
@@ -215,7 +229,21 @@ function getLoggedInUser() {
     return "";
 }
 
-function setLoggedInUser(username) {
+function getStoredEmailHint() {
+    return normalizeEmailHint(getStoredValue(window.localStorage, AUTH_EMAIL_HINT_KEY));
+}
+
+function setStoredEmailHint(emailHint) {
+    const cleanEmailHint = normalizeEmailHint(emailHint);
+    if (!cleanEmailHint) {
+        removeStoredValue(window.localStorage, AUTH_EMAIL_HINT_KEY);
+        return;
+    }
+
+    setStoredValue(window.localStorage, AUTH_EMAIL_HINT_KEY, cleanEmailHint);
+}
+
+function setLoggedInUser(username, emailHint = "") {
     const cleanUsername = normalizeStoredUser(username);
     if (!cleanUsername) {
         return;
@@ -223,16 +251,127 @@ function setLoggedInUser(username) {
 
     setStoredValue(window.sessionStorage, "logged_user", cleanUsername);
     setStoredValue(window.localStorage, AUTH_USER_KEY, cleanUsername);
+    if (emailHint) {
+        setStoredEmailHint(emailHint);
+    }
 }
 
 function clearLoggedInUser() {
     removeStoredValue(window.sessionStorage, "logged_user");
     removeStoredValue(window.localStorage, AUTH_USER_KEY);
+    removeStoredValue(window.localStorage, AUTH_EMAIL_HINT_KEY);
 }
 
-function renderHeaderAuthButtons(container, username) {
-    if (!(container instanceof HTMLElement)) {
+function createMinecraftHeadUrl(username) {
+    const cleanUsername = normalizeStoredUser(username);
+    if (!cleanUsername) {
+        return "";
+    }
+
+    return `https://mc-heads.net/avatar/${encodeURIComponent(cleanUsername)}/32`;
+}
+
+async function fetchProfileSummary(username) {
+    const cleanUsername = normalizeStoredUser(username);
+    if (!cleanUsername) {
+        return "";
+    }
+
+    try {
+        const response = await fetch("/api/profile", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ username: cleanUsername })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return "";
+        }
+
+        const emailHint = normalizeEmailHint(payload.emailHint);
+        if (emailHint) {
+            setStoredEmailHint(emailHint);
+        }
+
+        return emailHint;
+    } catch (error) {
+        return "";
+    }
+}
+
+async function changePasswordFlow(username) {
+    const cleanUsername = normalizeStoredUser(username);
+    if (!cleanUsername) {
+        showToast("Kullanici bilgisi bulunamadi.", "error");
         return;
+    }
+
+    const currentPassword = window.prompt("Mevcut sifreni gir:");
+    if (currentPassword === null) {
+        return;
+    }
+
+    if (!currentPassword) {
+        showToast("Mevcut sifre bos olamaz.", "error");
+        return;
+    }
+
+    const newPassword = window.prompt("Yeni sifreni gir (6-72 karakter):");
+    if (newPassword === null) {
+        return;
+    }
+
+    if (newPassword.length < 6 || newPassword.length > 72) {
+        showToast("Yeni sifre 6-72 karakter olmali.", "error");
+        return;
+    }
+
+    if (newPassword === currentPassword) {
+        showToast("Yeni sifre mevcut sifreden farkli olmali.", "error");
+        return;
+    }
+
+    const repeatPassword = window.prompt("Yeni sifreni tekrar gir:");
+    if (repeatPassword === null) {
+        return;
+    }
+
+    if (repeatPassword !== newPassword) {
+        showToast("Yeni sifre tekrarinda eslesme hatasi.", "error");
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/change-password", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username: cleanUsername,
+                currentPassword,
+                newPassword
+            })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showToast(payload.message || "Sifre degistirilemedi.", "error");
+            return;
+        }
+
+        showToast(payload.message || "Sifre degistirildi.", "success");
+    } catch (error) {
+        showToast("Sunucuya baglanilamadi.", "error");
+    }
+}
+
+function renderHeaderAuthButtons(container, username, emailHint) {
+    if (!(container instanceof HTMLElement)) {
+        return null;
     }
 
     if (!container.dataset.defaultAuthMarkup) {
@@ -241,21 +380,93 @@ function renderHeaderAuthButtons(container, username) {
 
     if (!username) {
         container.innerHTML = container.dataset.defaultAuthMarkup || "";
-        return;
+        return null;
     }
 
     container.innerHTML = "";
 
-    const userBadge = document.createElement("span");
-    userBadge.className = "auth-user-badge";
-    userBadge.textContent = `@${username}`;
-    userBadge.title = username;
+    const menuRoot = document.createElement("div");
+    menuRoot.className = "profile-menu";
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "profile-trigger";
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.setAttribute("aria-haspopup", "true");
+
+    const avatar = document.createElement("img");
+    avatar.className = "profile-head";
+    avatar.src = createMinecraftHeadUrl(username);
+    avatar.alt = `${username} skin`;
+    avatar.loading = "lazy";
+    avatar.decoding = "async";
+    avatar.referrerPolicy = "no-referrer";
+    avatar.addEventListener("error", () => {
+        avatar.style.opacity = "0.45";
+    });
+
+    const triggerMeta = document.createElement("span");
+    triggerMeta.className = "profile-trigger-meta";
+
+    const triggerLabel = document.createElement("span");
+    triggerLabel.className = "profile-trigger-label";
+    triggerLabel.textContent = "Nick";
+
+    const triggerNick = document.createElement("span");
+    triggerNick.className = "profile-trigger-nick";
+    triggerNick.textContent = username;
+    triggerNick.title = username;
+
+    triggerMeta.append(triggerLabel, triggerNick);
+    trigger.append(avatar, triggerMeta);
+
+    const panel = document.createElement("div");
+    panel.className = "profile-panel";
+    panel.setAttribute("role", "menu");
+
+    const nickRow = document.createElement("div");
+    nickRow.className = "profile-row";
+    const nickLabel = document.createElement("span");
+    nickLabel.className = "profile-label";
+    nickLabel.textContent = "Nick";
+    const nickValue = document.createElement("span");
+    nickValue.className = "profile-value";
+    nickValue.textContent = username;
+    nickRow.append(nickLabel, nickValue);
+
+    const emailRow = document.createElement("div");
+    emailRow.className = "profile-row";
+    const emailLabel = document.createElement("span");
+    emailLabel.className = "profile-label";
+    emailLabel.textContent = "E-posta";
+
+    const emailValue = document.createElement("span");
+    emailValue.className = "profile-value profile-email-value";
+    emailValue.textContent = emailHint || "Yukleniyor...";
+    emailRow.append(emailLabel, emailValue);
+
+    const divider = document.createElement("div");
+    divider.className = "profile-divider";
+
+    const changePasswordBtn = document.createElement("button");
+    changePasswordBtn.type = "button";
+    changePasswordBtn.className = "profile-action-btn";
+    changePasswordBtn.textContent = "Sifre Degistir";
+    changePasswordBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await changePasswordFlow(username);
+        menuRoot.classList.remove("open");
+        trigger.setAttribute("aria-expanded", "false");
+    });
 
     const logoutBtn = document.createElement("button");
     logoutBtn.type = "button";
-    logoutBtn.className = "auth-link outline auth-logout-btn";
+    logoutBtn.className = "profile-action-btn profile-logout-btn";
     logoutBtn.textContent = "Cikis Yap";
-    logoutBtn.addEventListener("click", () => {
+    logoutBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         clearLoggedInUser();
         showToast("Cikis yapildi.", "success", { duration: 1400 });
         window.setTimeout(() => {
@@ -263,18 +474,72 @@ function renderHeaderAuthButtons(container, username) {
         }, 220);
     });
 
-    container.append(userBadge, logoutBtn);
+    panel.append(nickRow, emailRow, divider, changePasswordBtn, logoutBtn);
+    menuRoot.append(trigger, panel);
+    container.append(menuRoot);
+
+    const closeMenu = () => {
+        menuRoot.classList.remove("open");
+        trigger.setAttribute("aria-expanded", "false");
+    };
+
+    trigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const shouldOpen = !menuRoot.classList.contains("open");
+        if (shouldOpen) {
+            menuRoot.classList.add("open");
+            trigger.setAttribute("aria-expanded", "true");
+        } else {
+            closeMenu();
+        }
+    });
+
+    document.addEventListener("click", (event) => {
+        if (menuRoot.contains(event.target)) {
+            return;
+        }
+
+        closeMenu();
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeMenu();
+        }
+    });
+
+    return emailValue;
 }
 
-function initHeaderAuthState() {
+async function initHeaderAuthState() {
     const authButtonAreas = document.querySelectorAll(".auth-buttons");
     if (authButtonAreas.length === 0) {
         return;
     }
 
     const username = getLoggedInUser();
+    const storedEmailHint = getStoredEmailHint();
+    const emailFields = [];
+
     authButtonAreas.forEach((container) => {
-        renderHeaderAuthButtons(container, username);
+        const emailValueElement = renderHeaderAuthButtons(container, username, storedEmailHint);
+        if (emailValueElement) {
+            emailFields.push(emailValueElement);
+        }
+    });
+
+    if (!username || storedEmailHint) {
+        return;
+    }
+
+    const latestEmailHint = await fetchProfileSummary(username);
+    if (!latestEmailHint) {
+        return;
+    }
+
+    emailFields.forEach((field) => {
+        field.textContent = latestEmailHint;
     });
 }
 
@@ -513,7 +778,7 @@ async function submitAuth() {
         }
 
         if (isLogin) {
-            setLoggedInUser(payload.username || username);
+            setLoggedInUser(payload.username || username, payload.emailHint);
             showToast("Giriş başarılı.", "success", { duration: 1800 });
             window.setTimeout(() => {
                 window.location.href = "/mainpage.html";
@@ -946,4 +1211,3 @@ document.addEventListener("DOMContentLoaded", () => {
     initAuthPage();
     initStorePage();
 });
-

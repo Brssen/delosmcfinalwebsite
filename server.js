@@ -552,9 +552,94 @@ app.post(["/api/auth/login", "/auth/login", "/api/login"], async (req, res) => {
             });
         }
 
-        return res.json({ message: "Giris basarili.", username: user.username });
+        return res.json({
+            message: "Giris basarili.",
+            username: user.username,
+            emailHint: maskEmail(user.email)
+        });
     } catch (error) {
         console.error("Login error:", error);
+        return res.status(500).json({ message: "Sunucu hatasi." });
+    }
+});
+
+app.post(["/api/auth/profile", "/auth/profile", "/api/profile"], async (req, res) => {
+    const { username } = req.body || {};
+    if (typeof username !== "string") {
+        return res.status(400).json({ message: "Kullanici adi zorunlu." });
+    }
+
+    const cleanUsername = username.trim();
+    if (cleanUsername.length < 3 || cleanUsername.length > 32) {
+        return res.status(400).json({ message: "Gecerli bir kullanici adi gir." });
+    }
+
+    try {
+        const userResult = await getPool().query(
+            "SELECT username, email FROM users WHERE username = $1 LIMIT 1",
+            [cleanUsername]
+        );
+
+        const user = userResult.rows[0];
+        if (!user) {
+            return res.status(404).json({ message: "Kullanici bulunamadi." });
+        }
+
+        return res.json({
+            username: user.username,
+            emailHint: maskEmail(user.email)
+        });
+    } catch (error) {
+        console.error("Profile error:", error);
+        return res.status(500).json({ message: "Sunucu hatasi." });
+    }
+});
+
+app.post(["/api/auth/change-password", "/auth/change-password", "/api/change-password"], async (req, res) => {
+    const { username, currentPassword, newPassword } = req.body || {};
+
+    if (typeof username !== "string" || typeof currentPassword !== "string" || typeof newPassword !== "string") {
+        return res.status(400).json({ message: "Gecersiz istek govdesi." });
+    }
+
+    const cleanUsername = username.trim();
+    if (cleanUsername.length < 3 || cleanUsername.length > 32) {
+        return res.status(400).json({ message: "Gecerli bir kullanici adi gir." });
+    }
+
+    if (newPassword.length < 6 || newPassword.length > 72) {
+        return res.status(400).json({ message: "Yeni sifre 6-72 karakter olmali." });
+    }
+
+    if (currentPassword === newPassword) {
+        return res.status(400).json({ message: "Yeni sifre mevcut sifreden farkli olmali." });
+    }
+
+    try {
+        const userResult = await getPool().query(
+            "SELECT id, password_hash FROM users WHERE username = $1 LIMIT 1",
+            [cleanUsername]
+        );
+
+        const user = userResult.rows[0];
+        if (!user) {
+            return res.status(404).json({ message: "Kullanici bulunamadi." });
+        }
+
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isCurrentPasswordValid) {
+            return res.status(401).json({ message: "Mevcut sifre yanlis." });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, 10);
+        await getPool().query(
+            "UPDATE users SET password_hash = $1 WHERE id = $2",
+            [newPasswordHash, user.id]
+        );
+
+        return res.json({ message: "Sifre basariyla degistirildi." });
+    } catch (error) {
+        console.error("Change password error:", error);
         return res.status(500).json({ message: "Sunucu hatasi." });
     }
 });

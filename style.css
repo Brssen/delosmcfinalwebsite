@@ -202,6 +202,151 @@ nav a:hover {
     line-height: 1;
 }
 
+.profile-menu {
+    position: relative;
+}
+
+.profile-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(46, 242, 207, 0.45);
+    background: rgba(11, 20, 36, 0.85);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.profile-trigger:hover {
+    border-color: var(--primary);
+    box-shadow: 0 8px 18px rgba(46, 242, 207, 0.26);
+}
+
+.profile-head {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    object-fit: cover;
+    image-rendering: pixelated;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.profile-trigger-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.profile-trigger-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.72;
+}
+
+.profile-trigger-nick {
+    max-width: 130px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(92vw, 280px);
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(46, 242, 207, 0.3);
+    background: rgba(7, 15, 26, 0.97);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+    z-index: 120;
+}
+
+.profile-menu.open .profile-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.profile-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+}
+
+.profile-label {
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #95a8c9;
+}
+
+.profile-value {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.profile-email-value {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #d4e4ff;
+}
+
+.profile-divider {
+    height: 1px;
+    margin: 10px 0;
+    background: linear-gradient(90deg, rgba(46, 242, 207, 0.25), rgba(46, 242, 207, 0.05));
+}
+
+.profile-action-btn {
+    width: 100%;
+    border: 1px solid rgba(46, 242, 207, 0.4);
+    border-radius: 10px;
+    background: rgba(46, 242, 207, 0.1);
+    color: #dff9f4;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 10px;
+    cursor: pointer;
+}
+
+.profile-action-btn + .profile-action-btn {
+    margin-top: 8px;
+}
+
+.profile-action-btn:hover {
+    border-color: var(--primary);
+    background: rgba(46, 242, 207, 0.18);
+}
+
+.profile-logout-btn {
+    border-color: rgba(255, 130, 130, 0.5);
+    background: rgba(255, 130, 130, 0.12);
+    color: #ffd8d8;
+}
+
+.profile-logout-btn:hover {
+    border-color: rgba(255, 140, 140, 0.86);
+    background: rgba(255, 130, 130, 0.2);
+}
+
 .hero {
     min-height: 100vh;
     background: url("3d-fantasy-scene.jpg") center/cover no-repeat;
@@ -1505,6 +1650,16 @@ body.popup-open {
     .header-actions {
         width: 100%;
         justify-content: center;
+    }
+
+    .profile-panel {
+        right: auto;
+        left: 50%;
+        transform: translate(-50%, -4px);
+    }
+
+    .profile-menu.open .profile-panel {
+        transform: translate(-50%, 0);
     }
 
     .footer-content,
