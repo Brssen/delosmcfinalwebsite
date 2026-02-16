@@ -11,15 +11,79 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_TOKEN_MINUTES = Number(process.env.EMAIL_VERIFY_TTL_MINUTES || 60);
-const DATABASE_URL = process.env.DATABASE_URL || "";
-const DB_SSL = String(process.env.DB_SSL || "true").toLowerCase() === "true";
-const DB_ENABLE_CHANNEL_BINDING = String(process.env.DB_ENABLE_CHANNEL_BINDING || "true").toLowerCase() === "true";
+
+function normalizeEnvValue(rawValue) {
+    if (typeof rawValue !== "string") {
+        return "";
+    }
+
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+        return "";
+    }
+
+    const hasSingleQuotes = trimmed.startsWith("'") && trimmed.endsWith("'");
+    const hasDoubleQuotes = trimmed.startsWith("\"") && trimmed.endsWith("\"");
+    if ((hasSingleQuotes || hasDoubleQuotes) && trimmed.length >= 2) {
+        return trimmed.slice(1, -1).trim();
+    }
+
+    return trimmed;
+}
+
+function getEnvString(keys, fallback = "") {
+    for (const key of keys) {
+        const value = normalizeEnvValue(process.env[key]);
+        if (value) {
+            return value;
+        }
+    }
+
+    return fallback;
+}
+
+function getEnvNumber(keys, fallback) {
+    const value = getEnvString(keys, "");
+    if (!value) {
+        return fallback;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getEnvBoolean(keys, fallback) {
+    const value = getEnvString(keys, "").toLowerCase();
+    if (!value) {
+        return fallback;
+    }
+
+    if (["1", "true", "yes", "on"].includes(value)) {
+        return true;
+    }
+
+    if (["0", "false", "no", "off"].includes(value)) {
+        return false;
+    }
+
+    return fallback;
+}
+
+const DATABASE_URL = getEnvString(["DATABASE_URL", "POSTGRES_URL", "POSTGRESQL_URL", "DB_URL"]);
+const DB_SSL = getEnvBoolean(["DB_SSL"], true);
+const DB_ENABLE_CHANNEL_BINDING = getEnvBoolean(["DB_ENABLE_CHANNEL_BINDING"], true);
+const DB_HOST = getEnvString(["DB_HOST", "PGHOST"]);
+const DB_PORT = getEnvNumber(["DB_PORT", "PGPORT"], 5432);
+const DB_USER = getEnvString(["DB_USER", "PGUSER"], "postgres");
+const DB_PASSWORD = getEnvString(["DB_PASSWORD", "DB_PASS", "PGPASSWORD"]);
+const DB_NAME = getEnvString(["DB_NAME", "PGDATABASE"], "delosmc");
+const IS_SERVERLESS_RUNTIME = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const DB_FALLBACK_CONFIG = {
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT || 5432),
-    user: process.env.DB_USER || "postgres",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "delosmc"
+    host: DB_HOST || "localhost",
+    port: DB_PORT,
+    user: DB_USER,
+    password: DB_PASSWORD,
+    database: DB_NAME
 };
 
 const smtpConfig = {
@@ -51,11 +115,32 @@ let pool;
 let appInitPromise = null;
 let smtpChecked = false;
 
+function getDbTarget() {
+    if (DATABASE_URL) {
+        try {
+            const parsedUrl = new URL(DATABASE_URL);
+            return `${parsedUrl.hostname}:${parsedUrl.port || 5432}${parsedUrl.pathname || ""}`;
+        } catch (error) {
+            return "DATABASE_URL";
+        }
+    }
+
+    return `${DB_FALLBACK_CONFIG.host}:${DB_FALLBACK_CONFIG.port}/${DB_FALLBACK_CONFIG.database}`;
+}
+
 function getStartupErrorMessage(error) {
     const code = error && typeof error === "object" ? error.code : "";
 
+    if (code === "MISSING_DB_CONFIG") {
+        return "Veritabani ayari bulunamadi. Vercel Environment Variables bolumune DATABASE_URL (veya POSTGRES_URL) ekle.";
+    }
+
+    if (code === "INVALID_DB_URL") {
+        return "DATABASE_URL formati gecersiz. URL'nin postgresql:// ile basladigini kontrol et.";
+    }
+
     if (code === "ECONNREFUSED" || code === "ETIMEDOUT" || code === "ENOTFOUND") {
-        return "Veritabani baglantisi kurulamadi. DATABASE_URL veya DB_HOST/DB_PORT ayarlarini kontrol et.";
+        return `Veritabani baglantisi kurulamadi (${getDbTarget()}). DATABASE_URL/POSTGRES_URL veya DB_HOST/DB_PORT ayarlarini kontrol et.`;
     }
 
     if (code === "28P01") {
@@ -84,6 +169,22 @@ function getPool() {
 function createDatabasePool() {
     if (pool) {
         return;
+    }
+
+    if (!DATABASE_URL && !DB_HOST && IS_SERVERLESS_RUNTIME) {
+        const missingConfigError = new Error("Missing database config in serverless runtime.");
+        missingConfigError.code = "MISSING_DB_CONFIG";
+        throw missingConfigError;
+    }
+
+    if (DATABASE_URL) {
+        try {
+            new URL(DATABASE_URL);
+        } catch (error) {
+            const invalidUrlError = new Error("Invalid DATABASE_URL.");
+            invalidUrlError.code = "INVALID_DB_URL";
+            throw invalidUrlError;
+        }
     }
 
     const baseConfig = DATABASE_URL
