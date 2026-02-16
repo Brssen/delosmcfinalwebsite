@@ -86,19 +86,29 @@ const DB_FALLBACK_CONFIG = {
     database: DB_NAME
 };
 
+const SMTP_PORT = getEnvNumber(["SMTP_PORT", "MAIL_PORT"], 587);
+const hasExplicitSmtpSecureValue = Boolean(getEnvString(["SMTP_SECURE", "MAIL_SECURE"]));
+const smtpSecureDefault = SMTP_PORT === 465;
+const SMTP_SECURE = hasExplicitSmtpSecureValue
+    ? getEnvBoolean(["SMTP_SECURE", "MAIL_SECURE"], smtpSecureDefault)
+    : smtpSecureDefault;
+const SMTP_USER = getEnvString(["SMTP_USER", "SMTP_USERNAME", "MAIL_USER"]);
+const SMTP_PASS = getEnvString(["SMTP_PASS", "SMTP_PASSWORD", "MAIL_PASS"]);
+const SMTP_FROM = getEnvString(["SMTP_FROM", "MAIL_FROM"], SMTP_USER);
+
 const smtpConfig = {
-    host: process.env.SMTP_HOST || "",
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
-    from: process.env.SMTP_FROM || ""
+    host: getEnvString(["SMTP_HOST", "MAIL_HOST"]),
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
+    user: SMTP_USER,
+    pass: SMTP_PASS,
+    from: SMTP_FROM
 };
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
 const PUBLIC_ROOT = path.join(process.cwd(), "public");
 const STATIC_ROOT = fs.existsSync(PUBLIC_ROOT) ? PUBLIC_ROOT : process.cwd();
-const smtpEnabled = Boolean(smtpConfig.host && smtpConfig.user && smtpConfig.pass && smtpConfig.from);
+const smtpEnabled = Boolean(smtpConfig.host && smtpConfig.user && smtpConfig.pass);
 const mailTransporter = smtpEnabled
     ? nodemailer.createTransport({
         host: smtpConfig.host,
@@ -299,12 +309,13 @@ async function sendVerificationEmail({ to, username, token, requestBaseUrl }) {
         console.log(`[EMAIL VERIFY LINK] ${to} -> ${verificationLink}`);
         return {
             delivered: false,
-            verificationLink
+            verificationLink,
+            reason: "smtp_disabled"
         };
     }
 
     await mailTransporter.sendMail({
-        from: smtpConfig.from,
+        from: smtpConfig.from || smtpConfig.user,
         to,
         subject: "DelosMC E-posta Dogrulama",
         text: `Merhaba ${username}, hesabini dogrulamak icin bu linki ac: ${verificationLink}`,
@@ -318,7 +329,8 @@ async function sendVerificationEmail({ to, username, token, requestBaseUrl }) {
 
     return {
         delivered: true,
-        verificationLink
+        verificationLink,
+        reason: "smtp_sent"
     };
 }
 
@@ -377,7 +389,7 @@ async function ensureAppInitialized() {
                         console.log("SMTP baglantisi hazir.");
                     } catch (smtpError) {
                         console.warn("SMTP baglantisi dogrulanamadi. Mail gonderimi calismayabilir.");
-                        console.warn(smtpError.message);
+                        console.warn(`SMTP verify error: ${smtpError.code || "UNKNOWN"} ${smtpError.message}`);
                     }
                 } else {
                     console.log("SMTP ayarlari tanimli degil. Dogrulama linkleri konsola yazilacak.");
@@ -458,15 +470,21 @@ app.post(["/api/auth/register", "/auth/register", "/api/register"], async (req, 
             console.error("Verification email send error:", emailErrorInternal);
             emailResult = {
                 delivered: false,
-                verificationLink: `${requestBaseUrl}/api/verify?token=${token.rawToken}`
+                verificationLink: `${requestBaseUrl}/api/verify?token=${token.rawToken}`,
+                reason: "smtp_error"
             };
         }
 
+        const responseMessage = emailResult.delivered
+            ? "Kayit basarili. E-posta dogrulama linki gonderildi."
+            : (emailResult.reason === "smtp_error"
+                ? "Kayit basarili fakat dogrulama e-postasi gonderilemedi. SMTP ayarlarini kontrol et."
+                : "Kayit basarili. SMTP ayarlari tanimli degil, dogrulama linki gecici olarak API cevabina eklendi.");
+
         const response = {
-            message: emailResult.delivered
-                ? "Kayit basarili. E-posta dogrulama linki gonderildi."
-                : "Kayit basarili. SMTP ayari yoksa link server konsoluna yazilir.",
-            requiresEmailVerification: true
+            message: responseMessage,
+            requiresEmailVerification: true,
+            emailDelivery: emailResult.reason || "unknown"
         };
 
         if (!emailResult.delivered) {
@@ -611,7 +629,7 @@ app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) =>
 app.get(["/api/health", "/health"], async (_req, res) => {
     try {
         await getPool().query("SELECT 1");
-        res.json({ ok: true });
+        res.json({ ok: true, smtpConfigured: smtpEnabled });
     } catch (error) {
         res.status(500).json({ ok: false, message: "DB baglantisi basarisiz." });
     }
