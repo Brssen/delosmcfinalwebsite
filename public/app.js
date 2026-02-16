@@ -1,4 +1,5 @@
-﻿const CART_KEY = "delosmc_cart";
+const CART_KEY = "delosmc_cart";
+const AUTH_USER_KEY = "delosmc_user";
 const SHOP_CATEGORY_DELAY_MS = 700;
 const PAGE_TRANSITION_DURATION_MS = 420;
 const AUTH_MODE_SWITCH_DELAY_MS = 140;
@@ -158,6 +159,122 @@ function showConfirm(message, options = {}) {
 
     return new Promise((resolve) => {
         activeConfirmResolver = resolve;
+    });
+}
+
+function normalizeStoredUser(rawValue) {
+    if (typeof rawValue !== "string") {
+        return "";
+    }
+
+    const cleanValue = rawValue.trim();
+    if (!cleanValue) {
+        return "";
+    }
+
+    return cleanValue.slice(0, 32);
+}
+
+function getStoredValue(storage, key) {
+    try {
+        return storage.getItem(key);
+    } catch (error) {
+        return "";
+    }
+}
+
+function setStoredValue(storage, key, value) {
+    try {
+        storage.setItem(key, value);
+    } catch (error) {
+        // Ignore storage write errors (private mode, quota, disabled storage).
+    }
+}
+
+function removeStoredValue(storage, key) {
+    try {
+        storage.removeItem(key);
+    } catch (error) {
+        // Ignore storage cleanup errors.
+    }
+}
+
+function getLoggedInUser() {
+    const sessionUser = normalizeStoredUser(getStoredValue(window.sessionStorage, "logged_user"));
+    if (sessionUser) {
+        setStoredValue(window.localStorage, AUTH_USER_KEY, sessionUser);
+        return sessionUser;
+    }
+
+    const localUser = normalizeStoredUser(getStoredValue(window.localStorage, AUTH_USER_KEY));
+    if (localUser) {
+        setStoredValue(window.sessionStorage, "logged_user", localUser);
+        return localUser;
+    }
+
+    return "";
+}
+
+function setLoggedInUser(username) {
+    const cleanUsername = normalizeStoredUser(username);
+    if (!cleanUsername) {
+        return;
+    }
+
+    setStoredValue(window.sessionStorage, "logged_user", cleanUsername);
+    setStoredValue(window.localStorage, AUTH_USER_KEY, cleanUsername);
+}
+
+function clearLoggedInUser() {
+    removeStoredValue(window.sessionStorage, "logged_user");
+    removeStoredValue(window.localStorage, AUTH_USER_KEY);
+}
+
+function renderHeaderAuthButtons(container, username) {
+    if (!(container instanceof HTMLElement)) {
+        return;
+    }
+
+    if (!container.dataset.defaultAuthMarkup) {
+        container.dataset.defaultAuthMarkup = container.innerHTML;
+    }
+
+    if (!username) {
+        container.innerHTML = container.dataset.defaultAuthMarkup || "";
+        return;
+    }
+
+    container.innerHTML = "";
+
+    const userBadge = document.createElement("span");
+    userBadge.className = "auth-user-badge";
+    userBadge.textContent = `@${username}`;
+    userBadge.title = username;
+
+    const logoutBtn = document.createElement("button");
+    logoutBtn.type = "button";
+    logoutBtn.className = "auth-link outline auth-logout-btn";
+    logoutBtn.textContent = "Cikis Yap";
+    logoutBtn.addEventListener("click", () => {
+        clearLoggedInUser();
+        showToast("Cikis yapildi.", "success", { duration: 1400 });
+        window.setTimeout(() => {
+            window.location.href = "/auth.html?mode=login";
+        }, 220);
+    });
+
+    container.append(userBadge, logoutBtn);
+}
+
+function initHeaderAuthState() {
+    const authButtonAreas = document.querySelectorAll(".auth-buttons");
+    if (authButtonAreas.length === 0) {
+        return;
+    }
+
+    const username = getLoggedInUser();
+    authButtonAreas.forEach((container) => {
+        renderHeaderAuthButtons(container, username);
     });
 }
 
@@ -396,7 +513,7 @@ async function submitAuth() {
         }
 
         if (isLogin) {
-            sessionStorage.setItem("logged_user", payload.username || username);
+            setLoggedInUser(payload.username || username);
             showToast("Giriş başarılı.", "success", { duration: 1800 });
             window.setTimeout(() => {
                 window.location.href = "/mainpage.html";
@@ -713,6 +830,11 @@ function initAuthPage() {
         return;
     }
 
+    if (getLoggedInUser()) {
+        window.location.replace("/mainpage.html");
+        return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const verifiedStatus = params.get("verified");
     const mode = params.get("mode");
@@ -820,6 +942,7 @@ function initStorePage() {
 
 document.addEventListener("DOMContentLoaded", () => {
     initPageTransitions();
+    initHeaderAuthState();
     initAuthPage();
     initStorePage();
 });
