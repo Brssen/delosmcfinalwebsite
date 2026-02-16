@@ -72,6 +72,7 @@ function getEnvBoolean(keys, fallback) {
 const DATABASE_URL = getEnvString(["DATABASE_URL", "POSTGRES_URL", "POSTGRESQL_URL", "DB_URL"]);
 const DB_SSL = getEnvBoolean(["DB_SSL"], true);
 const DB_ENABLE_CHANNEL_BINDING = getEnvBoolean(["DB_ENABLE_CHANNEL_BINDING"], true);
+const EMAIL_VERIFICATION_ENABLED = getEnvBoolean(["EMAIL_VERIFICATION_ENABLED"], false);
 const DB_HOST = getEnvString(["DB_HOST", "PGHOST"]);
 const DB_PORT = getEnvNumber(["DB_PORT", "PGPORT"], 5432);
 const DB_USER = getEnvString(["DB_USER", "PGUSER"], "postgres");
@@ -383,7 +384,9 @@ async function ensureAppInitialized() {
 
             if (!smtpChecked) {
                 smtpChecked = true;
-                if (smtpEnabled && mailTransporter) {
+                if (!EMAIL_VERIFICATION_ENABLED) {
+                    console.log("E-posta dogrulama gecici olarak devre disi.");
+                } else if (smtpEnabled && mailTransporter) {
                     try {
                         await mailTransporter.verify();
                         console.log("SMTP baglantisi hazir.");
@@ -448,6 +451,23 @@ app.post(["/api/auth/register", "/auth/register", "/api/register"], async (req, 
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
+
+        if (!EMAIL_VERIFICATION_ENABLED) {
+            await getPool().query(
+                `
+                    INSERT INTO users (username, email, password_hash, is_verified, verification_token_hash, verification_expires_at, email_verified_at)
+                    VALUES ($1, $2, $3, TRUE, NULL, NULL, NOW())
+                `,
+                [cleanUsername, cleanEmail, passwordHash]
+            );
+
+            return res.status(201).json({
+                message: "Kayit basarili.",
+                requiresEmailVerification: false,
+                emailDelivery: "verification_disabled"
+            });
+        }
+
         const token = createVerificationToken();
 
         await getPool().query(
@@ -524,7 +544,7 @@ app.post(["/api/auth/login", "/auth/login", "/api/login"], async (req, res) => {
             return res.status(401).json({ message: "Bilgiler yanlis." });
         }
 
-        if (!user.is_verified) {
+        if (EMAIL_VERIFICATION_ENABLED && !user.is_verified) {
             return res.status(403).json({
                 message: "Hesabini dogrulamak icin e-posta kutunu kontrol et.",
                 requiresEmailVerification: true,
@@ -540,6 +560,10 @@ app.post(["/api/auth/login", "/auth/login", "/api/login"], async (req, res) => {
 });
 
 app.post(["/api/auth/resend-verification", "/auth/resend-verification", "/api/resend-verification"], async (req, res) => {
+    if (!EMAIL_VERIFICATION_ENABLED) {
+        return res.status(400).json({ message: "E-posta dogrulama su an devre disi." });
+    }
+
     const { username } = req.body || {};
     if (typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
         return res.status(400).json({ message: "Gecerli bir kullanici adi gir." });
@@ -581,6 +605,10 @@ app.post(["/api/auth/resend-verification", "/auth/resend-verification", "/api/re
 });
 
 app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) => {
+    if (!EMAIL_VERIFICATION_ENABLED) {
+        return res.redirect("/auth.html?mode=login&verified=success");
+    }
+
     const rawToken = typeof req.query.token === "string" ? req.query.token.trim() : "";
     if (!rawToken || rawToken.length < 20) {
         return res.redirect("/auth.html?mode=login&verified=invalid");
@@ -629,7 +657,11 @@ app.get(["/api/auth/verify", "/auth/verify", "/api/verify"], async (req, res) =>
 app.get(["/api/health", "/health"], async (_req, res) => {
     try {
         await getPool().query("SELECT 1");
-        res.json({ ok: true, smtpConfigured: smtpEnabled });
+        res.json({
+            ok: true,
+            smtpConfigured: smtpEnabled,
+            emailVerificationEnabled: EMAIL_VERIFICATION_ENABLED
+        });
     } catch (error) {
         res.status(500).json({ ok: false, message: "DB baglantisi basarisiz." });
     }
