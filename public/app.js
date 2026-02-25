@@ -6,7 +6,7 @@ const PAGE_TRANSITION_DURATION_MS = 420;
 const AUTH_MODE_SWITCH_DELAY_MS = 140;
 const LOGIN_REDIRECT_DELAY_MS = 700;
 const TOAST_EXIT_MS = 240;
-let isLogin = true;
+let authMode = "login";
 let shopCategoryTimer = null;
 let authModeInitialized = false;
 let authModeTimer = null;
@@ -302,73 +302,6 @@ async function fetchProfileSummary(username) {
     }
 }
 
-async function changePasswordFlow(username) {
-    const cleanUsername = normalizeStoredUser(username);
-    if (!cleanUsername) {
-        showToast("Kullanici bilgisi bulunamadi.", "error");
-        return;
-    }
-
-    const currentPassword = window.prompt("Mevcut sifreni gir:");
-    if (currentPassword === null) {
-        return;
-    }
-
-    if (!currentPassword) {
-        showToast("Mevcut sifre bos olamaz.", "error");
-        return;
-    }
-
-    const newPassword = window.prompt("Yeni sifreni gir (6-72 karakter):");
-    if (newPassword === null) {
-        return;
-    }
-
-    if (newPassword.length < 6 || newPassword.length > 72) {
-        showToast("Yeni sifre 6-72 karakter olmali.", "error");
-        return;
-    }
-
-    if (newPassword === currentPassword) {
-        showToast("Yeni sifre mevcut sifreden farkli olmali.", "error");
-        return;
-    }
-
-    const repeatPassword = window.prompt("Yeni sifreni tekrar gir:");
-    if (repeatPassword === null) {
-        return;
-    }
-
-    if (repeatPassword !== newPassword) {
-        showToast("Yeni sifre tekrarinda eslesme hatasi.", "error");
-        return;
-    }
-
-    try {
-        const response = await fetch("/api/change-password", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                username: cleanUsername,
-                currentPassword,
-                newPassword
-            })
-        });
-
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            showToast(payload.message || "Sifre degistirilemedi.", "error");
-            return;
-        }
-
-        showToast(payload.message || "Sifre degistirildi.", "success");
-    } catch (error) {
-        showToast("Sunucuya baglanilamadi.", "error");
-    }
-}
-
 function renderHeaderAuthButtons(container, username, emailHint) {
     if (!(container instanceof HTMLElement)) {
         return null;
@@ -452,12 +385,10 @@ function renderHeaderAuthButtons(container, username, emailHint) {
     changePasswordBtn.type = "button";
     changePasswordBtn.className = "profile-action-btn";
     changePasswordBtn.textContent = "Sifre Degistir";
-    changePasswordBtn.addEventListener("click", async (event) => {
+    changePasswordBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        await changePasswordFlow(username);
-        menuRoot.classList.remove("open");
-        trigger.setAttribute("aria-expanded", "false");
+        window.location.href = "/auth.html?mode=password";
     });
 
     const logoutBtn = document.createElement("button");
@@ -553,54 +484,132 @@ function getAuthElements() {
         username: document.getElementById("username"),
         email: document.getElementById("email"),
         emailField: document.getElementById("emailField"),
+        passwordLabel: document.getElementById("passwordLabel"),
         password: document.getElementById("password"),
+        newPassword: document.getElementById("newPassword"),
+        newPasswordField: document.getElementById("newPasswordField"),
+        repeatPassword: document.getElementById("repeatPassword"),
+        repeatPasswordField: document.getElementById("repeatPasswordField"),
         loginTab: document.getElementById("loginTab"),
-        registerTab: document.getElementById("registerTab")
+        registerTab: document.getElementById("registerTab"),
+        changePasswordTab: document.getElementById("changePasswordTab")
     };
 }
 
-function applyAuthMode(el, loginMode) {
-    isLogin = loginMode;
-    el.title.innerText = isLogin ? "Giriş Yap" : "Kayıt Ol";
-    el.submitBtn.innerText = isLogin ? "Giriş Yap" : "Kayıt Ol";
+function normalizeAuthMode(mode) {
+    if (mode === "register") {
+        return "register";
+    }
+
+    if (mode === "password" || mode === "change-password") {
+        return "password";
+    }
+
+    return "login";
+}
+
+function getAuthSubmitLabel(mode) {
+    if (mode === "register") {
+        return "Kayit Ol";
+    }
+
+    if (mode === "password") {
+        return "Sifre Degistir";
+    }
+
+    return "Giris Yap";
+}
+
+function applyAuthMode(el, mode) {
+    authMode = normalizeAuthMode(mode);
+    const isLoginMode = authMode === "login";
+    const isRegisterMode = authMode === "register";
+    const isPasswordMode = authMode === "password";
+
+    if (el.title) {
+        el.title.innerText = isLoginMode
+            ? "Giris Yap"
+            : (isRegisterMode ? "Kayit Ol" : "Sifre Degistir");
+    }
+
+    if (el.submitBtn) {
+        el.submitBtn.innerText = getAuthSubmitLabel(authMode);
+    }
 
     if (el.subtitle) {
-        el.subtitle.innerText = isLogin ? "Hesabınla devam et." : "Yeni hesap oluştur.";
+        el.subtitle.innerText = isLoginMode
+            ? "Hesabinla devam et."
+            : (isRegisterMode ? "Yeni hesap olustur." : "Mevcut sifreni guvenli sekilde guncelle.");
     }
 
-    if (isLogin) {
-        el.switchText.innerHTML = "Hesabın yok mu? <a href=\"#\" onclick=\"openRegister(); return false;\">Kayıt Ol</a>";
-    } else {
-        el.switchText.innerHTML = "Zaten hesabın var mı? <a href=\"#\" onclick=\"openLogin(); return false;\">Giriş Yap</a>";
+    if (el.switchText) {
+        if (isLoginMode) {
+            el.switchText.innerHTML = 'Hesabin yok mu? <a href="#" onclick="openRegister(); return false;">Kayit Ol</a> | <a href="#" onclick="openChangePassword(); return false;">Sifre Degistir</a>';
+        } else if (isRegisterMode) {
+            el.switchText.innerHTML = 'Zaten hesabin var mi? <a href="#" onclick="openLogin(); return false;">Giris Yap</a> | <a href="#" onclick="openChangePassword(); return false;">Sifre Degistir</a>';
+        } else {
+            el.switchText.innerHTML = 'Hesabina giris yapmak icin <a href="#" onclick="openLogin(); return false;">Giris Yap</a> veya <a href="#" onclick="openRegister(); return false;">Kayit Ol</a>';
+        }
     }
 
-    if (el.loginTab && el.registerTab) {
-        el.loginTab.classList.toggle("active", isLogin);
-        el.registerTab.classList.toggle("active", !isLogin);
+    if (el.loginTab) {
+        el.loginTab.classList.toggle("active", isLoginMode);
+    }
+
+    if (el.registerTab) {
+        el.registerTab.classList.toggle("active", isRegisterMode);
+    }
+
+    if (el.changePasswordTab) {
+        el.changePasswordTab.classList.toggle("active", isPasswordMode);
     }
 
     if (el.emailField && el.email) {
-        el.emailField.classList.toggle("hidden", isLogin);
-        el.email.required = !isLogin;
-        el.email.disabled = isLogin;
-        if (isLogin) {
+        el.emailField.classList.toggle("hidden", !isRegisterMode);
+        el.email.required = isRegisterMode;
+        el.email.disabled = !isRegisterMode;
+        if (!isRegisterMode) {
             el.email.value = "";
         }
     }
 
+    if (el.newPasswordField && el.newPassword) {
+        el.newPasswordField.classList.toggle("hidden", !isPasswordMode);
+        el.newPassword.required = isPasswordMode;
+        el.newPassword.disabled = !isPasswordMode;
+        if (!isPasswordMode) {
+            el.newPassword.value = "";
+        }
+    }
+
+    if (el.repeatPasswordField && el.repeatPassword) {
+        el.repeatPasswordField.classList.toggle("hidden", !isPasswordMode);
+        el.repeatPassword.required = isPasswordMode;
+        el.repeatPassword.disabled = !isPasswordMode;
+        if (!isPasswordMode) {
+            el.repeatPassword.value = "";
+        }
+    }
+
+    if (el.passwordLabel) {
+        el.passwordLabel.innerText = isPasswordMode ? "Mevcut Sifre" : "Sifre";
+    }
+
     if (el.password) {
-        el.password.setAttribute("autocomplete", isLogin ? "current-password" : "new-password");
+        el.password.placeholder = isPasswordMode ? "Mevcut sifren" : "Sifren";
+        el.password.setAttribute("autocomplete", isLoginMode ? "current-password" : "new-password");
     }
 }
 
-function setAuthMode(loginMode, options = {}) {
+function setAuthMode(mode, options = {}) {
     const el = getAuthElements();
     if (!el.title || !el.submitBtn || !el.switchText) {
         return;
     }
 
+    const normalizedMode = normalizeAuthMode(mode);
     const animate = options.animate !== false;
-    const hasModeChanged = isLogin !== loginMode;
+    const hasModeChanged = authMode !== normalizedMode;
 
     window.clearTimeout(authModeTimer);
     if (el.authCard) {
@@ -608,7 +617,7 @@ function setAuthMode(loginMode, options = {}) {
     }
 
     const commitMode = () => {
-        applyAuthMode(el, loginMode);
+        applyAuthMode(el, normalizedMode);
         authModeInitialized = true;
     };
 
@@ -634,13 +643,16 @@ function setAuthMode(loginMode, options = {}) {
 }
 
 function openLogin() {
-    setAuthMode(true);
+    setAuthMode("login");
 }
 
 function openRegister() {
-    setAuthMode(false);
+    setAuthMode("register");
 }
 
+function openChangePassword() {
+    setAuthMode("password");
+}
 function initPageTransitions() {
     const body = document.body;
     if (!body) {
@@ -723,24 +735,62 @@ async function submitAuth() {
         return;
     }
 
+    const mode = normalizeAuthMode(authMode);
     const username = el.username.value.trim();
     const email = el.email ? el.email.value.trim() : "";
-    const password = el.password.value;
+    const currentPassword = el.password.value;
+    const newPassword = el.newPassword ? el.newPassword.value : "";
+    const repeatPassword = el.repeatPassword ? el.repeatPassword.value : "";
 
-    if (!username || !password || (!isLogin && !email)) {
-        showToast("Alanları boş bırakma.", "error");
+    if (!username || !currentPassword || (mode === "register" && !email)) {
+        showToast("Alanlari bos birakma.", "error");
         return;
     }
 
-    const endpoint = isLogin ? "/api/login" : "/api/register";
+    if (mode === "password") {
+        if (!newPassword || !repeatPassword) {
+            showToast("Yeni sifre alanlarini doldur.", "error");
+            return;
+        }
+
+        if (newPassword.length < 6 || newPassword.length > 72) {
+            showToast("Yeni sifre 6-72 karakter olmali.", "error");
+            return;
+        }
+
+        if (newPassword !== repeatPassword) {
+            showToast("Yeni sifre tekrari eslesmiyor.", "error");
+            return;
+        }
+
+        if (newPassword === currentPassword) {
+            showToast("Yeni sifre mevcut sifreden farkli olmali.", "error");
+            return;
+        }
+    }
+
+    let endpoint = "/api/login";
+    let requestBody = { username, password: currentPassword };
+    let loadingLabel = "Giris yapiliyor...";
+
+    if (mode === "register") {
+        endpoint = "/api/register";
+        requestBody = { username, email, password: currentPassword };
+        loadingLabel = "Kayit olusturuluyor...";
+    } else if (mode === "password") {
+        endpoint = "/api/change-password";
+        requestBody = {
+            username,
+            currentPassword,
+            newPassword
+        };
+        loadingLabel = "Sifre guncelleniyor...";
+    }
+
     el.submitBtn.disabled = true;
-    el.submitBtn.innerText = isLogin ? "Giriş yapılıyor..." : "Kayıt oluşturuluyor...";
+    el.submitBtn.innerText = loadingLabel;
 
     try {
-        const requestBody = isLogin
-            ? { username, password }
-            : { username, email, password };
-
         const response = await fetch(endpoint, {
             method: "POST",
             headers: {
@@ -752,18 +802,18 @@ async function submitAuth() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
             if (
-                isLogin &&
+                mode === "login" &&
                 response.status === 403 &&
                 payload &&
                 payload.requiresEmailVerification
             ) {
-                const hint = payload.emailHint ? ` (${payload.emailHint})` : "";
+                const hint = payload.emailHint ? (" (" + payload.emailHint + ")") : "";
                 const resendConfirm = await showConfirm(
-                    `Hesabın doğrulanmamış${hint}. Doğrulama mailini tekrar göndermek ister misin?`,
+                    "Hesabin dogrulanmamis" + hint + ". Dogrulama mailini tekrar gondermek ister misin?",
                     {
-                        title: "E-posta Doğrulama",
+                        title: "E-posta Dogrulama",
                         cancelText: "Sonra",
-                        approveText: "Tekrar Gönder"
+                        approveText: "Tekrar Gonder"
                     }
                 );
 
@@ -773,39 +823,52 @@ async function submitAuth() {
                 return;
             }
 
-            showToast(payload.message || "İşlem başarısız.", "error");
+            showToast(payload.message || "Islem basarisiz.", "error");
             return;
         }
 
-        if (isLogin) {
+        if (mode === "login") {
             setLoggedInUser(payload.username || username, payload.emailHint);
-            showToast("Giriş başarılı.", "success", { duration: 1800 });
+            showToast("Giris basarili.", "success", { duration: 1800 });
             window.setTimeout(() => {
                 window.location.href = "/mainpage.html";
             }, LOGIN_REDIRECT_DELAY_MS);
             return;
         }
 
-        const registerMessageRaw = typeof payload.message === "string"
-            ? payload.message
-            : "Kayıt başarılı. E-posta doğrulama linki gönderildi.";
-        const registerMessage = registerMessageRaw.replace(/^Kayit basarili/i, "Kayıt başarılı");
-        showToast(registerMessage, "success", { duration: 5000 });
+        if (mode === "register") {
+            const registerMessageRaw = typeof payload.message === "string"
+                ? payload.message
+                : "Kayit basarili.";
+            showToast(registerMessageRaw, "success", { duration: 5000 });
 
-        if (payload.devVerificationLink) {
-            showToast(`Geliştirme linki: ${payload.devVerificationLink}`, "info", { duration: 9000 });
+            if (payload.devVerificationLink) {
+                showToast("Gelistirme linki: " + payload.devVerificationLink, "info", { duration: 9000 });
+            }
+
+            el.password.value = "";
+            openLogin();
+            return;
         }
 
-        el.password.value = "";
+        showToast(payload.message || "Sifre basariyla degistirildi.", "success", { duration: 3600 });
+        if (el.password) {
+            el.password.value = "";
+        }
+        if (el.newPassword) {
+            el.newPassword.value = "";
+        }
+        if (el.repeatPassword) {
+            el.repeatPassword.value = "";
+        }
         openLogin();
     } catch (error) {
-        showToast("Sunucuya bağlanılamadı.", "error");
+        showToast("Sunucuya baglanilamadi.", "error");
     } finally {
         el.submitBtn.disabled = false;
-        el.submitBtn.innerText = isLogin ? "Giriş Yap" : "Kayıt Ol";
+        el.submitBtn.innerText = getAuthSubmitLabel(normalizeAuthMode(authMode));
     }
 }
-
 async function resendVerification(username) {
     try {
         const response = await fetch("/api/resend-verification", {
@@ -1095,30 +1158,37 @@ function initAuthPage() {
         return;
     }
 
-    if (getLoggedInUser()) {
+    const params = new URLSearchParams(window.location.search);
+    const verifiedStatus = params.get("verified");
+    const initialMode = normalizeAuthMode(params.get("mode"));
+    const currentUser = getLoggedInUser();
+
+    if (currentUser && initialMode !== "password") {
         window.location.replace("/mainpage.html");
         return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const verifiedStatus = params.get("verified");
-    const mode = params.get("mode");
-
     if (verifiedStatus === "success") {
-        showToast("E-posta doğrulandı. Şimdi giriş yapabilirsin.", "success", { duration: 4500 });
+        showToast("E-posta dogrulandi. Simdi giris yapabilirsin.", "success", { duration: 4500 });
     } else if (verifiedStatus === "expired" || verifiedStatus === "invalid") {
-        showToast("Doğrulama linki geçersiz veya süresi dolmuş.", "error", { duration: 5000 });
+        showToast("Dogrulama linki gecersiz veya suresi dolmus.", "error", { duration: 5000 });
     } else if (verifiedStatus === "error") {
-        showToast("Doğrulama sırasında bir hata oluştu.", "error");
+        showToast("Dogrulama sirasinda bir hata olustu.", "error");
     }
 
-    setAuthMode(mode !== "register", { animate: false });
+    setAuthMode(initialMode, { animate: false });
 
     const username = document.getElementById("username");
     const email = document.getElementById("email");
     const password = document.getElementById("password");
+    const newPassword = document.getElementById("newPassword");
+    const repeatPassword = document.getElementById("repeatPassword");
 
-    [username, email, password].forEach((input) => {
+    if (initialMode === "password" && currentUser && username) {
+        username.value = currentUser;
+    }
+
+    [username, email, password, newPassword, repeatPassword].forEach((input) => {
         if (!input) {
             return;
         }
@@ -1130,7 +1200,6 @@ function initAuthPage() {
         });
     });
 }
-
 function initStorePage() {
     if (!document.body.classList.contains("shop-page")) {
         return;

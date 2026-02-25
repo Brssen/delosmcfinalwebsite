@@ -1277,7 +1277,9 @@ body.cart-open .cart-drawer {
 .auth-subtitle,
 .auth-submit,
 .auth-switch,
-#emailField {
+#emailField,
+#newPasswordField,
+#repeatPasswordField {
     transition: opacity 0.24s ease, transform 0.24s ease;
 }
 
@@ -1285,7 +1287,9 @@ body.cart-open .cart-drawer {
 .auth-card.is-switching .auth-subtitle,
 .auth-card.is-switching .auth-submit,
 .auth-card.is-switching .auth-switch,
-.auth-card.is-switching #emailField {
+.auth-card.is-switching #emailField,
+.auth-card.is-switching #newPasswordField,
+.auth-card.is-switching #repeatPasswordField {
     opacity: 0;
     transform: translateY(8px);
 }
@@ -1296,7 +1300,7 @@ body.cart-open .cart-drawer {
     border-radius: 12px;
     padding: 4px;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     margin-bottom: 18px;
 }
@@ -1306,6 +1310,7 @@ body.cart-open .cart-drawer {
     background: transparent;
     color: #9fb4d7;
     font-weight: 700;
+    font-size: 13px;
     border-radius: 9px;
     padding: 10px;
     cursor: pointer;
@@ -1677,6 +1682,10 @@ body.popup-open {
 
     .auth-shell {
         padding-top: 34px;
+    }
+
+    .auth-toggle {
+        grid-template-columns: 1fr;
     }
 
     .ui-toast-host {

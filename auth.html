@@ -33,6 +33,7 @@
         <div class="auth-toggle">
             <button type="button" onclick="openLogin()" id="loginTab" class="auth-tab active">Giriş Yap</button>
             <button type="button" onclick="openRegister()" id="registerTab" class="auth-tab">Kayıt Ol</button>
+            <button type="button" onclick="openChangePassword()" id="changePasswordTab" class="auth-tab">Şifre Değiştir</button>
         </div>
 
         <h2 id="modalTitle">Giriş Yap</h2>
@@ -63,7 +64,7 @@
         </div>
 
         <div class="auth-field">
-            <label for="password">Şifre</label>
+            <label for="password" id="passwordLabel">Şifre</label>
             <div class="input-shell">
                 <span class="field-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none">
@@ -74,8 +75,32 @@
             </div>
         </div>
 
+        <div class="auth-field hidden" id="newPasswordField">
+            <label for="newPassword">Yeni Şifre</label>
+            <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M17 8h-1V6a4 4 0 10-8 0v2H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V10a2 2 0 00-2-2zm-6 9.73V19a1 1 0 002 0v-1.27a2 2 0 10-2 0zM10 8V6a2 2 0 114 0v2h-4z"/>
+                    </svg>
+                </span>
+                <input type="password" id="newPassword" placeholder="Yeni şifren" autocomplete="new-password">
+            </div>
+        </div>
+
+        <div class="auth-field hidden" id="repeatPasswordField">
+            <label for="repeatPassword">Yeni Şifre Tekrar</label>
+            <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M17 8h-1V6a4 4 0 10-8 0v2H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V10a2 2 0 00-2-2zm-6 9.73V19a1 1 0 002 0v-1.27a2 2 0 10-2 0zM10 8V6a2 2 0 114 0v2h-4z"/>
+                    </svg>
+                </span>
+                <input type="password" id="repeatPassword" placeholder="Yeni şifreni tekrar yaz" autocomplete="new-password">
+            </div>
+        </div>
+
         <button type="button" onclick="submitAuth()" id="submitBtn" class="auth-submit">Giriş Yap</button>
-        <p id="switchText" class="auth-switch">Hesabın yok mu? <a href="#" onclick="openRegister(); return false;">Kayıt Ol</a></p>
+        <p id="switchText" class="auth-switch">Hesabın yok mu? <a href="#" onclick="openRegister(); return false;">Kayıt Ol</a> | <a href="#" onclick="openChangePassword(); return false;">Şifre Değiştir</a></p>
     </section>
 </main>
 
